@@ -23,6 +23,7 @@ import { ChatPage } from './pages/ChatPage';
 import { CreateActivityPage, createEmptyActivityDraft } from './pages/CreateActivityPage';
 import { SearchPage } from './pages/SearchPage';
 import { randomId } from './randomId';
+import { findGeneratedTopicById, resolveGeneratedTopicEntity } from './topicGenerator';
 
 type PendingAction = { key: string; expectedVersion: number } | null;
 
@@ -171,7 +172,7 @@ export default function App() {
     onHeartPerson: heartPerson,
     onFollowTopic: followTopic,
     onOpenActivity: (activity) => navigate('/activities/' + activity.id, { state: { from: location.pathname + location.search, scrollY: rememberCurrentScroll() } }),
-    resolveEntity: resolveFeedCardEntity,
+    resolveEntity: (card) => resolveGeneratedTopicEntity(card) ?? resolveFeedCardEntity(card),
   }), [followedTopics, heartPerson, heartedPeople, location.pathname, location.search, navigate, openFromFeed, pending?.key, rememberCurrentScroll, saveActivity, savedActivities]);
 
   const refresh = () => { setRefreshing(true); window.setTimeout(() => { setRefreshing(false); setMessage('已刷新为最新安全快照'); }, 650); };
@@ -189,7 +190,7 @@ export default function App() {
   else if (route.kind === 'me') page = <ProfilePage section={route.section} user={currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(Boolean(localStorage.getItem('4u:rfc:activity-draft')))}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑将在服务端接入后开放')} onEditRelationship={() => setMessage('关系意图编辑将在服务端接入后开放')} onOpenAsset={(asset) => setMessage('已打开' + asset + '（演示）')} onOpenPermission={() => setMessage('权限字段只展示，不在前端模拟修改')}/>;
   else if (route.kind === 'chat') {
     const thread = allThreads.find((item) => item.id === route.roomId);
-    const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? findTopicById(thread.topicId) : undefined;
+    const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? (findGeneratedTopicById(thread.topicId) ?? findTopicById(thread.topicId)) : undefined;
     const runtime = thread && (discussionRuntimes[thread.id] ?? (thread.kind === ThreadKind.TOPIC_DISCUSSION ? initialDiscussionRuntime(thread, topicVotes[thread.topicId]) : undefined));
     const partner = thread ? findPersonById(counterpartOf(thread, currentUser.profile.id) as never) : undefined;
     page = thread ? <ChatPage roomType={route.roomType} thread={thread} messages={[...getMessagesForThread(thread.id),...createdMessages.filter((item)=>item.threadId===thread.id),...sentMessages.filter((item)=>item.threadId===thread.id)]} people={people} currentUserId={currentUser.profile.id} connection={{transport:online?'WS':'POLLING',phase:online?'LIVE':'OFFLINE',attempted:online?['WS']:['WS','SSE','POLLING'],lastReceivedSeq:thread.messageIds.length + sentMessages.filter((item)=>item.threadId===thread.id).length,pollingIntervalSeconds:10}} onBack={routeBack} onSend={async(request)=>{await runDemoMutation({action:'send',entityId:request.threadId,expectedVersion:thread.entityVersion,currentVersion:thread.entityVersion,requiresOnline:true,commit:()=>{setSentMessages((items)=>[...items,{id:('message_local_'+randomId().replaceAll('-','')) as never,threadId:request.threadId,kind:'TEXT' as never,senderId:currentUser.profile.id,text:request.text,createdAt:new Date().toISOString() as never,deliveryStatus:'SENT' as never}]);}});setMessage('消息已明确发送（本地演示）');}} discussionRoom={topic && runtime ? { topic, runtime, partner, onNextPrompt: (prompt) => { setCreatedMessages((items) => [...items, { id: ('message_prompt_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.STRUCTURED_PROMPT, senderId: null, promptStage: prompt.promptStage, text: prompt.text, createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('已加入下一阶段提示，不会代你发送'); }, onContinue: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.CONTINUE, partnerDecision: DiscussionContinueDecision.CONTINUE, unlocked: true } })); setCreatedMessages((items) => [...items, { id: ('message_continue_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.SYSTEM, senderId: null, event: 'MATCH_CREATED' as never, text: '你们都愿意继续认识。已按隐私设置解锁更多资料。', createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('双方已同意继续认识'); }, onFinish: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.FINISH } })); setMessage('讨论已结束，不会向对方展示原因'); routeBack(); }, onLeave: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.LEFT_TEMPORARILY } })); setMessage('已暂时离开，房间会保留一段时间'); routeBack(); }, onReport: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.REPORTED } })); setMessage('已中止并进入安全处理（演示）'); routeBack(); } } : undefined}/> : <NotFound onBack={routeBack}/>;
@@ -208,7 +209,7 @@ export default function App() {
     const person = findPersonById(route.id as never);
     if (person) detail = <PersonDetail person={person} suggestedActivity={activities[0]} hearted={heartedPeople.has(person.id)} hearting={pending?.key === 'person:' + person.id} onBack={routeBack} onHeart={() => heartPerson(person)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})}/>;
   } else if (route.kind === 'topic') {
-    const topic = findTopicById(route.id as never);
+    const topic = findGeneratedTopicById(route.id as never) ?? findTopicById(route.id as never);
     if (topic) detail = <TopicDetail topic={topic} vote={topicVotes[topic.id]} online={online} matching={topicMatch?.topic.id === topic.id} onBack={routeBack} onSaveVote={saveVote} onStartDiscussion={(mode, vote) => startTopicMatch(topic, mode, vote)}/>;
   }
 

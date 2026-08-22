@@ -67,8 +67,9 @@ function PersonCard({ card, person, actions, compact = false }: { card: FeedCard
 function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; actions: CardActions }) {
   const genre = topicGenreLabel(topic);
   const action = topicPrimaryAction(topic);
+  const streamClass = topic.tags.includes('AI 热点') ? ' topic-card--ai-hot' : topic.tags.includes('AI 生活') ? ' topic-card--ai-life' : '';
   return (
-    <article className="feed-card topic-card" data-card-type="TOPIC" data-card-id={card.cardId}>
+    <article className={'feed-card topic-card' + streamClass} data-card-type="TOPIC" data-card-id={card.cardId}>
       <button type="button" className="card-main-action" aria-label={'查看话题：' + topic.title} onClick={() => actions.onOpen(card)} />
       <div className="topic-pulse" aria-hidden="true"><i/><i/><i/></div>
       <div className="topic-top">
@@ -79,7 +80,7 @@ function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; act
       <p>{topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? topic.scenario : topic.prompt}</p>
       <footer>
         <span><MessageCircle size={14}/>{action}</span>
-        <time>{topic.tags[0]}</time>
+        <time>{topic.tags[1] ?? topic.tags[0]}</time>
       </footer>
     </article>
   );

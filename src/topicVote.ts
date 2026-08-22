@@ -19,6 +19,8 @@ export function isPersonalExpression(topic: Topic) {
 }
 
 export function topicGenreLabel(topic: Topic) {
+  if (topic.tags.some((tag) => tag === 'AI 热点')) return 'AI 热点';
+  if (topic.tags.some((tag) => tag === 'AI 生活')) return 'AI 生活';
   if (topic.kind === TopicKind.RELATIONSHIP_SCENARIO) return '关系议题';
   if (isPersonalExpression(topic)) return '轻量表达';
   return '生活兴趣';
