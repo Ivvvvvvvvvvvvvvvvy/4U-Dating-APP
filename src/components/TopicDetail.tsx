@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Flag, MessageCircle, Radio, Sparkles } from 'lucide-react';
+import { ArrowLeft, Flag, MessageCircle, Radio } from 'lucide-react';
 import {
   DiscussionMatchMode,
   TopicKind,
@@ -84,7 +84,6 @@ function RelationshipTopicDetail({
   const [positionId, setPositionId] = useState(vote?.positionId ?? '');
   const [primaryReasonId, setPrimaryReasonId] = useState(vote?.primaryReasonId ?? '');
   const [secondaryReasonIds, setSecondaryReasonIds] = useState<string[]>([...(vote?.secondaryReasonIds ?? [])]);
-  const [otherReason, setOtherReason] = useState(vote?.otherReason ?? '');
   const reasons = topic.reasonOptionsByPosition[positionId] ?? [];
   const liveCount = topicOnlineCount(topic);
   const currentVote = useMemo<TopicVoteRecord | undefined>(() => {
@@ -94,10 +93,10 @@ function RelationshipTopicDetail({
       positionId,
       primaryReasonId: primaryReasonId || undefined,
       secondaryReasonIds,
-      otherReason: otherReason.trim() || undefined,
+      otherReason: undefined,
       skippedStage2: !primaryReasonId,
     };
-  }, [otherReason, positionId, primaryReasonId, secondaryReasonIds, topic.id, vote]);
+  }, [positionId, primaryReasonId, secondaryReasonIds, topic.id, vote]);
 
   const commitResult = (next: TopicVoteRecord) => {
     onSaveVote(next);
@@ -108,21 +107,12 @@ function RelationshipTopicDetail({
     setPositionId(id);
     setPrimaryReasonId('');
     setSecondaryReasonIds([]);
-    setOtherReason('');
     setStep('stage2');
   };
 
   const chooseReason = (id: string) => {
-    if (!primaryReasonId || primaryReasonId === id) {
-      setPrimaryReasonId(id);
-      setSecondaryReasonIds((current) => current.filter((item) => item !== id));
-      return;
-    }
-    setSecondaryReasonIds((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= 2) return current;
-      return [...current, id];
-    });
+    setPrimaryReasonId(id);
+    setSecondaryReasonIds([]);
   };
 
   const positionLabel = topic.positionOptions.find((option) => option.id === (currentVote?.positionId ?? positionId))?.label;
@@ -146,16 +136,12 @@ function RelationshipTopicDetail({
       </div>
       <div className="detail-body">
         <section className="detail-section topic-article">
-          <h2>情景</h2>
           <p>{topic.scenario}</p>
-          {topic.reversal && <aside className="topic-reversal"><Sparkles size={15} /><span>可能改变判断的条件：{topic.reversal}</span></aside>}
-          <div className="detail-tags">{topic.tags.filter((tag) => !tag.startsWith('AI ')).map((tag) => <span key={tag}>{tag}</span>)}</div>
         </section>
 
         {step === 'stage1' && (
           <section className="detail-section topic-vote">
-            <div className="section-title"><h2>第一次投票：你更支持哪种判断</h2><span>只记录情景立场</span></div>
-            <p className="topic-vote-hint">立场不等于择偶要求。选完后会再问一次“为什么”。</p>
+            <h2>你更支持哪种判断？</h2>
             <div className="topic-option-list">
               {topic.positionOptions.map((option) => (
                 <button key={option.id} type="button" className="topic-option" onClick={() => choosePosition(option.id)}>{option.label}</button>
@@ -166,33 +152,25 @@ function RelationshipTopicDetail({
 
         {step === 'stage2' && (
           <section className="detail-section topic-vote">
-            <div className="section-title"><h2>第二次投票：你最主要的理由</h2><span>可跳过</span></div>
-            <p className="topic-vote-hint">你选择了「{positionLabel}」。第一次点中的是主因，之后最多再选 2 个次因。</p>
+            <h2>你最主要的理由是什么？</h2>
             <div className="topic-option-list">
               {reasons.map((option) => {
                 const isPrimary = primaryReasonId === option.id;
-                const isSecondary = secondaryReasonIds.includes(option.id);
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    className={'topic-option' + (isPrimary ? ' is-primary' : '') + (isSecondary ? ' is-secondary' : '')}
+                    className={'topic-option' + (isPrimary ? ' is-primary' : '')}
                     onClick={() => chooseReason(option.id)}
                   >
                     <b>{option.label}</b>
-                    <small>{isPrimary ? '最主要原因' : isSecondary ? '也会考虑' : dimensionLabel(option.dimension)}</small>
                   </button>
                 );
               })}
             </div>
-            <label className="topic-other-reason">
-              <span>其他原因（默认不公开）</span>
-              <textarea value={otherReason} maxLength={80} rows={2} placeholder="可选，用于完善选项库" onChange={(event) => setOtherReason(event.target.value)} />
-            </label>
             <div className="topic-vote-actions">
-              <button type="button" className="primary-button" disabled={!primaryReasonId} onClick={() => currentVote && commitResult({ ...currentVote, skippedStage2: false })}>确认并看结果</button>
-              <button type="button" className="secondary-button" onClick={() => currentVote && commitResult({ ...currentVote, primaryReasonId: undefined, secondaryReasonIds: [], skippedStage2: true })}>先看结果</button>
-              <button type="button" className="text-button" onClick={() => setStep('stage1')}>返回修改立场</button>
+              <button type="button" className="primary-button" disabled={!primaryReasonId} onClick={() => currentVote && commitResult({ ...currentVote, skippedStage2: false })}>确认</button>
+              <button type="button" className="text-button" onClick={() => setStep('stage1')}>返回</button>
             </div>
           </section>
         )}
@@ -235,14 +213,6 @@ function RelationshipTopicDetail({
             </div>
           </section>
         )}
-
-        <section className="safety-panel">
-          <Flag />
-          <div>
-            <h2>表达服务于认识，不是站队</h2>
-            <p>停留只说明关注；投票是情景立场，不是给对方贴标签。即时讨论先展示有限资料，只有双方都选择继续认识，才会进入常规聊天。</p>
-          </div>
-        </section>
       </div>
     </article>
   );
