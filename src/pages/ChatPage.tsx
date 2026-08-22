@@ -12,6 +12,7 @@ import {
   type ThreadId,
 } from '../domain';
 import type { MessageRoomType } from './MessagesPage';
+import { randomId } from '../randomId';
 
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
@@ -75,7 +76,7 @@ export function ChatPage({
       await onSend({
         threadId: thread.id,
         text: trimmedDraft,
-        clientMessageId: `client_${crypto.randomUUID()}`,
+        clientMessageId: `client_${randomId()}`,
         afterSeq: connection.lastReceivedSeq,
       });
       setDraft('');
@@ -87,7 +88,7 @@ export function ChatPage({
   };
 
   return (
-    <section className="page chat-page screen-enter" aria-labelledby="chat-title" data-room-type={roomType}>
+    <section className="page chat-page screen-enter" aria-labelledby="chat-title" data-room-type={roomType} data-screen-label="聊天详情">
       <header className="chat-header">
         <button type="button" className="icon-button" aria-label="返回消息列表" onClick={onBack}><ArrowLeft size={21} /></button>
         <div>

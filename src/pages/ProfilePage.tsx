@@ -78,7 +78,7 @@ export function ProfilePage({
   const profile = user.profile;
 
   return (
-    <section className="page profile-page screen-enter" aria-labelledby="profile-name">
+    <section className="page profile-page screen-enter" aria-labelledby="profile-name" data-screen-label="用户资料">
       <header className="profile-cover">
         <div className="profile-identity">
           <SafeImage src={profile.photos[0].url} alt={profile.photos[0].alt} ratio="1 / 1" fallbackLabel="头像" />

@@ -67,7 +67,7 @@ export function SearchPage({
   const resultCount = activityResults.length + peopleResults.length + topicResults.length;
 
   return (
-    <section className="page search-layout screen-enter" aria-labelledby="search-title">
+    <section className="page search-layout screen-enter" aria-labelledby="search-title" data-screen-label="搜索">
       <header className="page-header">
         <button type="button" className="icon-button search-back" aria-label="关闭搜索" onClick={onBack}>←</button>
         <div><span>发现真实的人与活动</span><h1 id="search-title">搜索</h1></div>

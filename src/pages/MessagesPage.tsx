@@ -86,7 +86,7 @@ export function MessagesPage({
     : visibleThreads.reduce((total, thread) => total + thread.unreadCount, 0);
 
   return (
-    <section className="page inner-page messages-page screen-enter" aria-labelledby="messages-title">
+    <section className="page inner-page messages-page screen-enter" aria-labelledby="messages-title" data-screen-label="消息列表">
       <header className="simple-header">
         <div><small>活动与真实连接</small><h1 id="messages-title">消息</h1></div>
         <span className="unread-pill">{unreadCount ? `${unreadCount} 条未读` : '已读完'}</span>
@@ -105,16 +105,17 @@ export function MessagesPage({
       ) : visibleThreads.length ? (
         <div className="thread-list" role="list">
           {visibleThreads.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              thread={thread}
-              messages={messages}
-              people={people}
-              activities={activities}
-              topics={topics}
-              currentUserId={currentUserId}
-              onOpen={() => onOpenThread(roomTypeForThread(thread), thread.id)}
-            />
+            <div role="listitem" key={thread.id}>
+              <ThreadRow
+                thread={thread}
+                messages={messages}
+                people={people}
+                activities={activities}
+                topics={topics}
+                currentUserId={currentUserId}
+                onOpen={() => onOpenThread(roomTypeForThread(thread), thread.id)}
+              />
+            </div>
           ))}
         </div>
       ) : (
@@ -157,7 +158,6 @@ function ThreadRow({
     <button
       type="button"
       className="thread"
-      role="listitem"
       onClick={onOpen}
       aria-label={`打开${thread.title}，${thread.unreadCount} 条未读`}
     >
@@ -205,12 +205,16 @@ function NotificationList({
               <time dateTime={notification.createdAt}>{relativeTime(notification.createdAt)}</time>
             </>
           );
-          return onOpen ? (
-            <button key={notification.id} type="button" className="system-note notification-row" role="listitem" onClick={() => onOpen(notification)}>
-              {content}
-            </button>
-          ) : (
-            <article key={notification.id} className="system-note notification-row" role="listitem">{content}</article>
+          return (
+            <div key={notification.id} role="listitem">
+              {onOpen ? (
+                <button type="button" className="system-note notification-row" onClick={() => onOpen(notification)}>
+                  {content}
+                </button>
+              ) : (
+                <article className="system-note notification-row">{content}</article>
+              )}
+            </div>
           );
         })}
     </div>
