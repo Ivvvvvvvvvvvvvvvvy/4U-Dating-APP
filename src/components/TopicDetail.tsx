@@ -9,16 +9,9 @@ import {
 import { topicOnlineCount } from '../topicMatch';
 import {
   isPersonalExpression,
-  matchModeCopy,
   topicGenreLabel,
 } from '../topicVote';
 import { useDetailFocus } from './detailFocus';
-
-const matchEntries = [
-  DiscussionMatchMode.SAME_POSITION_SAME_REASON,
-  DiscussionMatchMode.SAME_POSITION_DIFFERENT_REASON,
-  DiscussionMatchMode.DIFFERENT_POSITION_SHARED_VALUE,
-] as const;
 
 export function TopicDetail({
   topic,
@@ -84,7 +77,6 @@ function RelationshipTopicDetail({
   const [primaryReasonId, setPrimaryReasonId] = useState(vote?.primaryReasonId ?? '');
   const [secondaryReasonIds, setSecondaryReasonIds] = useState<string[]>([...(vote?.secondaryReasonIds ?? [])]);
   const reasons = topic.reasonOptionsByPosition[positionId] ?? [];
-  const liveCount = topicOnlineCount(topic);
   const currentVote = useMemo<TopicVoteRecord | undefined>(() => {
     if (!positionId) return vote;
     return {
@@ -190,29 +182,21 @@ function RelationshipTopicDetail({
                 </div>
               ))}
             </div>
-            <div className="topic-match-entries">
-              <small className={'topic-live-hint ' + (online ? 'is-live' : 'is-offline')}>
-                {online ? <><Radio size={13} /><i aria-hidden="true" />当前 {liveCount} 人在线，按开聊方式匹配</> : '离线时无法匹配'}
-              </small>
-              {matchEntries.map((mode) => {
-                const copy = matchModeCopy(mode, topic, currentVote);
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    className="topic-match-entry"
-                    disabled={!online || matching}
-                    onClick={() => onStartDiscussion(mode, currentVote)}
-                  >
-                    <strong>{copy.action}</strong>
-                    <span>{copy.description}</span>
-                  </button>
-                );
-              })}
-            </div>
           </section>
         )}
       </div>
+      {step === 'result' && currentVote && (
+        <footer className="sticky-action sticky-action--single">
+          <button
+            type="button"
+            className="primary-button topic-instant-button"
+            disabled={!online || matching}
+            onClick={() => onStartDiscussion(DiscussionMatchMode.SAME_POSITION_SAME_REASON, currentVote)}
+          >
+            <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
+          </button>
+        </footer>
+      )}
     </article>
   );
 }
