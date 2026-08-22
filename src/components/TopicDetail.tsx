@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Flag, MessageCircle, PenLine, Radio } from 'lucide-react';
 import {
   DiscussionMatchMode,
@@ -259,35 +260,40 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
           ))}
         </div>
       </section>
-      {composing && (
-        <div className="topic-comment-sheet" role="dialog" aria-modal="true" aria-labelledby="topic-comment-sheet-title">
-          <header>
-            <b id="topic-comment-sheet-title">发表评论</b>
-            <button type="button" className="text-button" onClick={() => setComposing(false)}>取消</button>
-          </header>
-          <textarea
-            value={draft}
-            maxLength={200}
-            rows={3}
-            autoFocus
-            aria-label="发表评论"
-            placeholder="友善表达你的观点…"
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <footer>
-            <small>{draft.length}/200</small>
-            <button type="button" className="primary-button" disabled={!draft.trim()} onClick={publish}>发表</button>
+      {typeof document !== 'undefined' && createPortal(
+        <>
+          {composing && (
+            <div className="topic-comment-sheet" role="dialog" aria-modal="true" aria-labelledby="topic-comment-sheet-title">
+              <header>
+                <b id="topic-comment-sheet-title">发表评论</b>
+                <button type="button" className="text-button" onClick={() => setComposing(false)}>取消</button>
+              </header>
+              <textarea
+                value={draft}
+                maxLength={200}
+                rows={3}
+                autoFocus
+                aria-label="发表评论"
+                placeholder="友善表达你的观点…"
+                onChange={(event) => setDraft(event.target.value)}
+              />
+              <footer>
+                <small>{draft.length}/200</small>
+                <button type="button" className="primary-button" disabled={!draft.trim()} onClick={publish}>发表</button>
+              </footer>
+            </div>
+          )}
+          <footer className="sticky-action topic-bottom-actions">
+            <button type="button" className="topic-comment-trigger" onClick={() => setComposing(true)}>
+              <PenLine size={17} />说点什么…
+            </button>
+            <button type="button" className="primary-button topic-online-chat" disabled={!online || matching} onClick={onChat}>
+              <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
+            </button>
           </footer>
-        </div>
+        </>,
+        document.body,
       )}
-      <footer className="sticky-action topic-bottom-actions">
-        <button type="button" className="topic-comment-trigger" onClick={() => setComposing(true)}>
-          <PenLine size={17} />说点什么…
-        </button>
-        <button type="button" className="primary-button topic-online-chat" disabled={!online || matching} onClick={onChat}>
-          <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
-        </button>
-      </footer>
     </>
   );
 }
