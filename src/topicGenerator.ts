@@ -55,8 +55,8 @@ const lifestyleSubjects = [
   ['睡前最后半小时，你最想留给什么？', '阅读、聊天、刷视频，还是安静发呆？', '哪种睡前状态会让你觉得一天完整结束？', '生活节奏'],
 ] as const;
 
-const hotContexts = ['刚确认关系时', '异地相处时', '双方工作都很忙时', '发生过类似误会后', '准备认真发展时', '生活节奏差异很大时'];
-const lifeContexts = ['在陌生城市生活时', '一个人度过时', '和刚认识的人相处时', '没有工作安排的一天', '预算有限的时候', '天气刚刚好的周末'];
+const hotContexts = ['刚确认关系时', '异地相处时', '双方工作都很忙时', '发生过类似误会后', '准备认真发展时', '生活节奏差异很大时', '关系进入新阶段时'];
+const lifeContexts = ['在陌生城市生活时', '一个人度过时', '和刚认识的人相处时', '没有工作安排的一天', '预算有限的时候', '天气刚刚好的周末', '想把生活过慢一点的时候'];
 const hotCovers = [
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=84',
   'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=84',
