@@ -27,6 +27,14 @@ export type BrowserLocation = {
   key: string;
 };
 
+const useHashRouting = import.meta.env.PROD && import.meta.env.BASE_URL !== '/';
+
+const readHashLocation = () => {
+  const raw = window.location.hash.slice(1) || '/home?primary=recommend&secondary=for-you';
+  const url = new URL(raw.startsWith('/') ? raw : '/' + raw, window.location.origin);
+  return { pathname: url.pathname, search: url.search };
+};
+
 const secondaryByPrimary: Record<HomePrimary, readonly HomeSecondary[]> = {
   recommend: ['for-you', 'nearby', 'weekend', 'new'],
   activities: ['all', 'weekend', 'duo', 'group', 'exhibition', 'movie', 'sport'],
@@ -41,9 +49,12 @@ const defaults: Record<HomePrimary, HomeSecondary> = {
 
 const locationSnapshot = (): BrowserLocation => {
   const state = (window.history.state ?? {}) as Record<string, unknown>;
+  const routeLocation = useHashRouting
+    ? readHashLocation()
+    : { pathname: window.location.pathname, search: window.location.search };
   return {
-    pathname: window.location.pathname,
-    search: window.location.search,
+    pathname: routeLocation.pathname,
+    search: routeLocation.search,
     state,
     key: typeof state.__key === 'string' ? state.__key : 'initial',
   };
@@ -125,13 +136,18 @@ export function useBrowserRouter() {
     }
     const onPopState = () => setLocation(locationSnapshot());
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    window.addEventListener('hashchange', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('hashchange', onPopState);
+    };
   }, []);
 
   const navigate = useCallback((to: string, options?: { replace?: boolean; state?: Record<string, unknown> }) => {
     const state = { ...(options?.state ?? {}), __key: crypto.randomUUID() };
-    if (options?.replace) window.history.replaceState(state, '', to);
-    else window.history.pushState(state, '', to);
+    const target = useHashRouting ? import.meta.env.BASE_URL + '#' + to : to;
+    if (options?.replace) window.history.replaceState(state, '', target);
+    else window.history.pushState(state, '', target);
     setLocation(locationSnapshot());
   }, []);
 
