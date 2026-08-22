@@ -270,7 +270,7 @@ export function HomePage({
           {!loading && !error && !empty && <small>{isTopicFeed ? '持续更新' : `${visibleCards.length} 条`}</small>}
         </div>
 
-        <MasonryFeed className={'feed-grid' + (isTopicFeed ? ' topic-feed-grid' : '')} label="首页内容流" singleColumn={isTopicFeed}>
+        <MasonryFeed className={'feed-grid' + (isTopicFeed ? ' topic-feed-grid' : '')} label="首页内容流">
           {loading ? skeletonKinds(primary).map((kind, index) => (
             <FeedSkeleton key={`${kind}-${index}`} kind={kind} />
           )) : error ? (

@@ -73,7 +73,6 @@ function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; act
       <p>{topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? topic.scenario : topic.prompt}</p>
       <footer>
         <span>{topic.replyCount} 人在聊</span>
-        <time>{topic.tags[1] ?? topic.tags[0]}</time>
       </footer>
     </article>
   );
