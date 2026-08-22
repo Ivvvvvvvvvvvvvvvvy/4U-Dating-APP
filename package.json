@@ -1,0 +1,28 @@
+{
+  "name": "for-u",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build --outDir dist/client && bash scripts/package-site.sh",
+    "preview": "vite preview --host 0.0.0.0",
+    "test:smoke": "node tests/smoke.mjs",
+    "test:responsive": "node tests/responsive.mjs",
+    "test:contracts": "node tests/contracts.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "playwright": "^1.62.1",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "displayName": "4U"
+}
