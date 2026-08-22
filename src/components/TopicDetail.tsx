@@ -167,37 +167,109 @@ function RelationshipTopicDetail({
         )}
 
         {step === 'result' && currentVote && (
-          <section className="detail-section topic-result">
-            <div className="section-title"><h2>结果与开聊</h2><button type="button" className="text-button topic-edit-vote" onClick={() => setStep('stage1')}>修改选择</button></div>
-            <p>
-              {Math.round(positionShare * 100)}% 的人选择「{positionLabel}」
-              {reasonLabel ? `，其中 ${Math.round(reasonShare * 100)}% 和你一样，最在意「${reasonLabel}」。` : '。你跳过了原因选择，仍可以按立场开聊。'}
-            </p>
-            <div className="topic-result-bars">
-              {topic.positionOptions.map((option) => (
-                <div key={option.id} className={option.id === currentVote.positionId ? 'is-mine' : ''}>
-                  <span>{option.label}</span>
-                  <i style={{ width: `${Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%` }} />
-                  <b>{Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%</b>
-                </div>
-              ))}
+          <>
+            <section className="detail-section topic-result">
+              <div className="section-title"><h2>投票结果</h2><button type="button" className="text-button topic-edit-vote" onClick={() => setStep('stage1')}>修改选择</button></div>
+              <p>
+                {Math.round(positionShare * 100)}% 的人选择「{positionLabel}」
+                {reasonLabel ? `，其中 ${Math.round(reasonShare * 100)}% 和你一样，最在意「${reasonLabel}」。` : '。你跳过了原因选择，仍可以按立场开聊。'}
+              </p>
+              <div className="topic-result-bars">
+                {topic.positionOptions.map((option) => (
+                  <div key={option.id} className={option.id === currentVote.positionId ? 'is-mine' : ''}>
+                    <span>{option.label}</span>
+                    <i style={{ width: `${Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%` }} />
+                    <b>{Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <TopicComments topicId={topic.id} />
+            <div className="topic-chat-action">
+              <button
+                type="button"
+                className="primary-button topic-instant-button"
+                disabled={!online || matching}
+                onClick={() => onStartDiscussion(DiscussionMatchMode.SAME_POSITION_SAME_REASON, currentVote)}
+              >
+                <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
+              </button>
             </div>
-          </section>
+          </>
         )}
       </div>
-      {step === 'result' && currentVote && (
-        <footer className="sticky-action sticky-action--single">
-          <button
-            type="button"
-            className="primary-button topic-instant-button"
-            disabled={!online || matching}
-            onClick={() => onStartDiscussion(DiscussionMatchMode.SAME_POSITION_SAME_REASON, currentVote)}
-          >
-            <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
-          </button>
-        </footer>
-      )}
     </article>
+  );
+}
+
+type TopicComment = {
+  id: string;
+  author: string;
+  avatar: string;
+  body: string;
+  time: string;
+};
+
+const starterComments: TopicComment[] = [
+  { id: 'comment-boundary', author: '小满', avatar: '满', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前' },
+  { id: 'comment-context', author: '林一', avatar: '林', body: '具体情境也很重要，同一件事在隐瞒和坦诚的前提下，感受会完全不同。', time: '28 分钟前' },
+  { id: 'comment-respect', author: 'Nana', avatar: 'N', body: '尊重彼此的不舒服，比争论谁的标准更正确更重要。', time: '1 小时前' },
+];
+
+function TopicComments({ topicId }: { topicId: string }) {
+  const storageKey = `4u:rfc:topic-comments:${topicId}`;
+  const [draft, setDraft] = useState('');
+  const [comments, setComments] = useState<TopicComment[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as TopicComment[] | null;
+      return Array.isArray(saved) ? saved : starterComments;
+    } catch {
+      return starterComments;
+    }
+  });
+
+  const publish = () => {
+    const body = draft.trim();
+    if (!body) return;
+    const next = [
+      { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚' },
+      ...comments,
+    ];
+    setComments(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+    setDraft('');
+  };
+
+  return (
+    <section className="detail-section topic-comments" aria-labelledby="topic-comments-title">
+      <div className="section-title">
+        <h2 id="topic-comments-title">评论区</h2>
+        <span>{comments.length} 条</span>
+      </div>
+      <form className="topic-comment-form" onSubmit={(event) => { event.preventDefault(); publish(); }}>
+        <textarea
+          value={draft}
+          maxLength={200}
+          rows={2}
+          aria-label="发表评论"
+          placeholder="说说你的看法…"
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <button type="submit" className="primary-button" disabled={!draft.trim()}>发表</button>
+      </form>
+      <div className="comments">
+        {comments.map((comment) => (
+          <article key={comment.id}>
+            <span aria-hidden="true">{comment.avatar}</span>
+            <div>
+              <b>{comment.author}</b>
+              <p>{comment.body}</p>
+              <footer><time>{comment.time}</time></footer>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

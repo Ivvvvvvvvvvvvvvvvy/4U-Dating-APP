@@ -397,6 +397,13 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .topic-result-bars i { grid-column: 1; height: 6px; border-radius: 99px; background: var(--rose); opacity: .35; }
 .topic-result-bars .is-mine i { opacity: 1; }
 .topic-result-bars b { grid-column: 2; grid-row: 1 / span 2; color: var(--muted); }
+.topic-comments { padding-bottom: 10px; }
+.topic-comment-form { margin: 12px 0 4px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: end; }
+.topic-comment-form textarea { width: 100%; min-height: 52px; max-height: 110px; resize: vertical; padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); color: var(--text); line-height: 1.5; }
+.topic-comment-form textarea:focus { outline: 0; border-color: rgba(232,111,145,.55); box-shadow: 0 0 0 3px var(--rose-soft); }
+.topic-comment-form .primary-button { min-height: 46px; padding: 0 18px; }
+.topic-chat-action { padding: 18px 0 26px; display: flex; justify-content: center; }
+.topic-chat-action .topic-instant-button { width: 100%; }
 .topic-match-entries { display: grid; gap: 8px; }
 .topic-match-entry { width: 100%; padding: 12px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); text-align: left; }
 .topic-match-entry strong { display: block; margin-bottom: 4px; font-size: 13px; }
