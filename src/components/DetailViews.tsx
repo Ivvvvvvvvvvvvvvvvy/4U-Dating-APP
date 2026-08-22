@@ -1,25 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Bookmark, CalendarDays, CheckCircle2, Flag, Heart, LockKeyhole, MapPin, Send, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
-import { ActivityFormat, ActivityRecruitmentStatus, RelationshipGoal, VerificationStatus, type Activity, type ActivityOpportunity, type Person, type Topic } from '../domain';
+import { ArrowLeft, Bookmark, CalendarDays, CheckCircle2, Flag, Heart, LockKeyhole, MapPin, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
+import { ActivityFormat, ActivityRecruitmentStatus, RelationshipGoal, VerificationStatus, type Activity, type ActivityOpportunity, type Person } from '../domain';
 import { findPersonById } from '../mockData';
+import { useDetailFocus } from './detailFocus';
 import { SafeImage } from './SafeImage';
-import { TabBar } from './TabBar';
 
 function DetailTop({ label, onBack, trailing }: { label: string; onBack: () => void; trailing?: React.ReactNode }) {
   return <header className="detail-top"><button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft/></button><span>{label}</span><div>{trailing}</div></header>;
-}
-
-function useDetailFocus(id: string) {
-  useEffect(() => {
-    document.getElementById(id)?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
-        document.querySelector<HTMLButtonElement>('.detail-top button[aria-label="返回"]')?.click();
-      }
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [id]);
 }
 
 export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBack, onSave, onJoin }: { activity: Activity; saved: boolean; joining: boolean; joined: boolean; canJoin: boolean; onBack: () => void; onSave: () => void; onJoin: () => void }) {
@@ -54,26 +40,6 @@ export function PersonDetail({ person, suggestedActivity, hearted, hearting, onB
       <section className="safety-panel"><LockKeyhole/><div><h2>低压力连接</h2><p>心动不会通知对方。只有双方都表达心动，才会建立一个可发消息的连接。</p><button type="button"><Flag size={14}/>举报或屏蔽</button></div></section>
     </div>
     <footer className="sticky-action sticky-action--single"><button className={'primary-button heart-cta ' + (hearted ? 'is-active' : '')} disabled={hearting} onClick={onHeart}><Heart fill={hearted ? 'currentColor' : 'none'}/>{hearting ? '正在确认…' : hearted ? '已心动 · 仅你可见' : '心动'}</button></footer>
-  </article>;
-}
-
-const comments = [
-  { name: '宁宁', body: '我会选一个需要轻度协作、又给彼此留有空间的活动。一起做事比硬找话题自然。', time: '12 分钟前' },
-  { name: '陈一', body: '散步不错，随时可以调整节奏，也不用一直面对面。', time: '34 分钟前' },
-];
-
-export function TopicDetail({ topic, relatedActivity, followed, onBack, onFollow, onOpenActivity, onToast }: { topic: Topic; relatedActivity: Activity; followed: boolean; onBack: () => void; onFollow: () => void; onOpenActivity: (activity: Activity) => void; onToast: (message: string) => void }) {
-  useDetailFocus('topic-detail-title');
-  const [sort, setSort] = useState<'relevant'|'latest'>('relevant');
-  const [reply, setReply] = useState('');
-  const sorted = useMemo(() => sort === 'relevant' ? comments : [...comments].reverse(), [sort]);
-  return <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
-    <DetailTop label="话题" onBack={onBack} trailing={<button className={'follow-button ' + (followed ? 'is-active' : '')} onClick={onFollow}>{followed ? '已关注' : '关注'}</button>}/>
-    <div className="topic-detail-hero"><span># {topic.tags[0]}</span><h1 id="topic-detail-title" tabIndex={-1}>{topic.title}</h1><p>{topic.summary}</p><div><span>小满 · 已认证</span><time>{new Date(topic.lastActivityAt).toLocaleDateString('zh-CN')}</time></div></div>
-    <div className="detail-body"><section className="detail-section topic-article"><p>{topic.kind === 'RELATIONSHIP_SCENARIO' ? topic.scenario : topic.prompt}</p><div className="detail-tags">{topic.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></section><section className="detail-section"><h2>从讨论走向真实体验</h2><button className="linked-event" onClick={() => onOpenActivity(relatedActivity)}><SafeImage src={relatedActivity.cover.url} alt="" ratio="1"/><span><small>关联活动 · 参与讨论不等于报名</small><b>{relatedActivity.title}</b><em>{dateLabel(relatedActivity)} · {relatedActivity.publicLocation.district}</em></span></button></section>
-      <section className="detail-section comments"><div className="section-title"><h2>{topic.replyCount} 条讨论</h2><TabBar label="评论排序" value={sort} options={[{value:'relevant',label:'相关'},{value:'latest',label:'最新'}]} onChange={setSort}/></div>{sorted.map((comment) => <article key={comment.name}><span>{comment.name.slice(0,1)}</span><div><b>{comment.name}</b><p>{comment.body}</p><footer><time>{comment.time}</time><button onClick={() => onToast('已进入回复模式')}>回复</button><button onClick={() => onToast('举报入口已打开（演示）')}>举报</button></footer></div></article>)}</section>
-    </div>
-    <footer className="reply-bar"><input aria-label="回复内容" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="友善表达你的想法…"/><button aria-label="发送回复" disabled={!reply.trim()} onClick={() => { setReply(''); onToast('回复已作为本地草稿提交'); }}><Send/></button></footer>
   </article>;
 }
 

@@ -1,5 +1,5 @@
-import { Plus, RefreshCcw, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useEffect } from 'react';
 import { ContentCard, type CardActions } from '../components/ContentCard';
 import { MobileBrandBar } from '../components/Navigation';
 import { MasonryFeed } from '../components/MasonryFeed';
@@ -14,7 +14,6 @@ import {
   type FeedCard,
 } from '../domain';
 import { activityFeed, currentUser, homeFeed, topicFeed } from '../mockData';
-import { generateTopicBatch, type AiTopicStream, type GeneratedTopicBatch } from '../topicGenerator';
 import {
   canonicalPath,
   homeDefaults,
@@ -45,18 +44,17 @@ const secondaryTabs = {
     { value: 'sport', label: '运动' },
   ],
   topics: [
-    { value: 'hot', label: '热点话题' },
-    { value: 'find-company', label: '找同行' },
-    { value: 'relationship', label: '认真关系' },
-    { value: 'lifestyle', label: '生活话题' },
-    { value: 'safety', label: '安全经验' },
+    { value: 'hot', label: '热门' },
+    { value: 'relationship', label: '关系议题' },
+    { value: 'lifestyle', label: '生活兴趣' },
+    { value: 'expression', label: '轻表达' },
   ],
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
 
 const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
   recommend: { title: '今天，想遇见什么？', description: '人物、活动机会与真实讨论，按推荐顺序呈现' },
   activities: { title: '加入一场真实活动', description: '只展示已经发布、可查看详情的活动' },
-  topics: { title: '从一个问题开始认识彼此', description: '表达观点，再决定是否加入讨论' },
+  topics: { title: '先聊话题，再决定是否认识', description: '关系议题负责表达观点，生活兴趣负责观察真实互动' },
 };
 
 const isWeekend = (startsAt: string) => {
@@ -134,12 +132,13 @@ function filterTopics(
     const entity = actions.resolveEntity(card);
     if (entity?.entityType !== FeedCardType.TOPIC) return false;
 
-    if (secondary === 'find-company') {
-      return entity.tags.some((tag) => tag.includes('同行'));
-    }
     if (secondary === 'relationship') return entity.kind === TopicKind.RELATIONSHIP_SCENARIO;
-    if (secondary === 'lifestyle') return entity.kind === TopicKind.LIFESTYLE_PROMPT;
-    if (secondary === 'safety') return entity.tags.some((tag) => tag.includes('安全'));
+    if (secondary === 'lifestyle') {
+      return entity.kind === TopicKind.LIFESTYLE_PROMPT && !entity.tags.some((tag) => tag === '轻表达' || tag === '近况');
+    }
+    if (secondary === 'expression') {
+      return entity.kind === TopicKind.LIFESTYLE_PROMPT && entity.tags.some((tag) => tag === '轻表达' || tag === '近况');
+    }
     return false;
   });
 }
@@ -187,16 +186,7 @@ export function HomePage({
   onNotifications,
   onCreate,
 }: HomePageProps) {
-  const [generatedBatches, setGeneratedBatches] = useState<Record<AiTopicStream, GeneratedTopicBatch>>(() => ({
-    hot: generateTopicBatch('hot'),
-    lifestyle: generateTopicBatch('lifestyle'),
-  }));
-  const [aiRefreshing, setAiRefreshing] = useState(false);
-  const aiStream: AiTopicStream = secondary === 'lifestyle' ? 'lifestyle' : 'hot';
-  const isAiTopicStream = primary === 'topics' && (secondary === 'hot' || secondary === 'lifestyle');
-  const visibleCards = isAiTopicStream
-    ? [...generatedBatches[aiStream].cards]
-    : cardsForRoute(primary, secondary, cardActions);
+  const visibleCards = cardsForRoute(primary, secondary, cardActions);
   const lead = leadByPrimary[primary];
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
 
@@ -216,16 +206,6 @@ export function HomePage({
 
   const clearFilter = () => {
     onNavigate(canonicalPath({ kind: 'home', primary, secondary: homeDefaults[primary] }));
-  };
-
-  const refreshAiTopics = () => {
-    if (aiRefreshing) return;
-    setAiRefreshing(true);
-    window.setTimeout(() => {
-      setGeneratedBatches((current) => ({ ...current, [aiStream]: generateTopicBatch(aiStream) }));
-      setAiRefreshing(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 420);
   };
 
   return (
@@ -251,29 +231,21 @@ export function HomePage({
       <div className="page-content">
         <div className="feed-lead">
           <div><h1>{lead.title}</h1><p>{lead.description}</p></div>
-          {isAiTopicStream ? (
-            <div className="ai-topic-controls">
-              <span><Sparkles size={13}/>AI 持续生成</span>
-              <button type="button" onClick={refreshAiTopics} disabled={aiRefreshing}>
-                <RefreshCcw size={14} className={aiRefreshing ? 'is-spinning' : ''}/>
-                {aiRefreshing ? '生成中…' : 'AI 换一批'}
-              </button>
-            </div>
-          ) : !loading && !error && !empty && <small>{visibleCards.length} 条</small>}
+          {!loading && !error && !empty && <small>{visibleCards.length} 条</small>}
         </div>
 
         <MasonryFeed className="feed-grid" label="首页内容流">
-          {loading || aiRefreshing ? skeletonKinds(primary).map((kind, index) => (
+          {loading ? skeletonKinds(primary).map((kind, index) => (
             <FeedSkeleton key={`${kind}-${index}`} kind={kind} />
           )) : error ? (
             <ErrorState onRetry={onRetry} />
           ) : empty || visibleCards.length === 0 ? (
             <EmptyState
               title="这一筛选暂时没有内容"
-              description="可以清除筛选继续看看，或发起一场你真正想参与的活动。"
+              description={primary === 'topics' ? '可以回到热门，看看关系议题或生活兴趣。' : '可以清除筛选继续看看，或发起一场你真正想参与的活动。'}
               actions={<>
                 <button type="button" className="secondary-button" onClick={clearFilter}>清除筛选</button>
-                <button type="button" className="primary-button" onClick={onCreate}>发起活动</button>
+                {primary !== 'topics' && <button type="button" className="primary-button" onClick={onCreate}>发起活动</button>}
               </>}
             />
           ) : (
@@ -284,14 +256,7 @@ export function HomePage({
             </>
           )}
         </MasonryFeed>
-        {!loading && !aiRefreshing && !error && !empty && visibleCards.length > 0 && (
-          isAiTopicStream ? (
-            <div className="ai-topic-more">
-              <span>这一批由 AI 生成并经过安全模板约束</span>
-              <button type="button" onClick={refreshAiTopics}><RefreshCcw size={15}/>继续换一批</button>
-            </div>
-          ) : <EndOfFeed />
-        )}
+        {!loading && !error && !empty && visibleCards.length > 0 && <EndOfFeed />}
       </div>
 
       <button type="button" className="floating-create" onClick={onCreate}>

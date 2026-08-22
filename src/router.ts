@@ -5,7 +5,7 @@ export type HomePrimary = 'recommend' | 'activities' | 'topics';
 export type HomeSecondary =
   | 'for-you' | 'nearby' | 'weekend' | 'new'
   | 'all' | 'duo' | 'group' | 'exhibition' | 'movie' | 'sport'
-  | 'hot' | 'find-company' | 'relationship' | 'lifestyle' | 'safety';
+  | 'hot' | 'relationship' | 'lifestyle' | 'expression';
 export type DiscoverSegment = 'for-you' | 'nearby' | 'new' | 'serious';
 export type MessageCategory = 'matches' | 'activities' | 'notifications';
 
@@ -39,7 +39,7 @@ const readHashLocation = () => {
 const secondaryByPrimary: Record<HomePrimary, readonly HomeSecondary[]> = {
   recommend: ['for-you', 'nearby', 'weekend', 'new'],
   activities: ['all', 'weekend', 'duo', 'group', 'exhibition', 'movie', 'sport'],
-  topics: ['hot', 'find-company', 'relationship', 'lifestyle', 'safety'],
+  topics: ['hot', 'relationship', 'lifestyle', 'expression'],
 };
 
 const defaults: Record<HomePrimary, HomeSecondary> = {

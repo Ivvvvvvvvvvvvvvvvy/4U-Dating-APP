@@ -478,12 +478,38 @@ interface TopicBase {
   readonly tags: NonEmptyReadonlyArray<string>;
 }
 
+export interface TopicResultStats {
+  readonly respondentCount: number;
+  readonly positionShares: Readonly<Record<string, number>>;
+  readonly reasonSharesByPosition: Readonly<Record<string, Readonly<Record<string, number>>>>;
+}
+
+export interface TopicVoteRecord {
+  readonly topicId: TopicId;
+  readonly positionId: string;
+  readonly primaryReasonId?: string;
+  readonly secondaryReasonIds: readonly string[];
+  readonly otherReason?: string;
+  readonly skippedStage2: boolean;
+}
+
+export enum DiscussionContinueDecision {
+  UNDECIDED = 'UNDECIDED',
+  CONTINUE = 'CONTINUE',
+  FINISH = 'FINISH',
+  LEFT_TEMPORARILY = 'LEFT_TEMPORARILY',
+  REPORTED = 'REPORTED',
+  BLOCKED = 'BLOCKED',
+}
+
 export interface RelationshipTopic extends TopicBase {
   readonly kind: TopicKind.RELATIONSHIP_SCENARIO;
   readonly scenario: string;
+  readonly reversal?: string;
   readonly primaryDimension: RelationshipDimension;
   readonly positionOptions: NonEmptyReadonlyArray<TopicOption>;
   readonly reasonOptionsByPosition: Readonly<Record<string, readonly TopicReasonOption[]>>;
+  readonly resultStats: TopicResultStats;
 }
 
 export interface LifestyleTopic extends TopicBase {
