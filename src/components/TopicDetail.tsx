@@ -140,7 +140,7 @@ function RelationshipTopicDetail({
         <span className="topic-dimension-pill">{dimensionLabel(topic.primaryDimension)}</span>
       </header>
       <div className="topic-detail-hero">
-        <span># {topic.tags[0]} · 两阶段投票</span>
+        <span># {topic.tags.find((tag) => !tag.startsWith('AI ')) ?? '关系讨论'}</span>
         <h1 id="topic-detail-title" tabIndex={-1}>{topic.title}</h1>
         <p>{topic.summary}</p>
       </div>
@@ -149,7 +149,7 @@ function RelationshipTopicDetail({
           <h2>情景</h2>
           <p>{topic.scenario}</p>
           {topic.reversal && <aside className="topic-reversal"><Sparkles size={15} /><span>可能改变判断的条件：{topic.reversal}</span></aside>}
-          <div className="detail-tags">{topic.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+          <div className="detail-tags">{topic.tags.filter((tag) => !tag.startsWith('AI ')).map((tag) => <span key={tag}>{tag}</span>)}</div>
         </section>
 
         {step === 'stage1' && (
@@ -271,7 +271,7 @@ function LifestyleTopicDetail({
         <span />
       </header>
       <div className="topic-detail-hero">
-        <span># {topic.tags[0]} · {personal ? '补充语境' : '即时讨论'}</span>
+        <span># {topic.tags.find((tag) => !tag.startsWith('AI ')) ?? (personal ? '轻松表达' : '生活话题')}</span>
         <h1 id="topic-detail-title" tabIndex={-1}>{topic.title}</h1>
         <p>{topic.summary}</p>
       </div>
@@ -303,4 +303,3 @@ function LifestyleTopicDetail({
     </article>
   );
 }
-

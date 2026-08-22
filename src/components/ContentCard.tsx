@@ -1,6 +1,5 @@
-import { Bookmark, CalendarDays, CheckCircle2, Heart, MapPin, MessageCircle, Sparkles, UsersRound } from 'lucide-react';
+import { Bookmark, CalendarDays, CheckCircle2, Heart, MapPin, Sparkles, UsersRound } from 'lucide-react';
 import { ActivityFulfillmentStatus, ActivityRecruitmentStatus, FeedAction, FeedCardType, TopicKind, VerificationStatus, type Activity, type ActivityOpportunity, type FeedCard, type Person, type Topic } from '../domain';
-import { topicGenreLabel, topicPrimaryAction } from '../topicVote';
 import { SafeImage } from './SafeImage';
 
 export type CardActions = {
@@ -65,21 +64,15 @@ function PersonCard({ card, person, actions, compact = false }: { card: FeedCard
 }
 
 function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; actions: CardActions }) {
-  const genre = topicGenreLabel(topic);
-  const action = topicPrimaryAction(topic);
   const streamClass = topic.tags.includes('AI 热点') ? ' topic-card--ai-hot' : topic.tags.includes('AI 生活') ? ' topic-card--ai-life' : '';
   return (
     <article className={'feed-card topic-card' + streamClass} data-card-type="TOPIC" data-card-id={card.cardId}>
       <button type="button" className="card-main-action" aria-label={'查看话题：' + topic.title} onClick={() => actions.onOpen(card)} />
       <div className="topic-pulse" aria-hidden="true"><i/><i/><i/></div>
-      <div className="topic-top">
-        <span>{genre} · {topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '两阶段投票' : '即时讨论'}</span>
-        <em className="topic-card-action">{action}</em>
-      </div>
       <h2 className="card-title-action" onClick={() => actions.onOpen(card)}>{topic.title}</h2>
       <p>{topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? topic.scenario : topic.prompt}</p>
       <footer>
-        <span><MessageCircle size={14}/>{action}</span>
+        <span>{topic.replyCount} 人在聊</span>
         <time>{topic.tags[1] ?? topic.tags[0]}</time>
       </footer>
     </article>

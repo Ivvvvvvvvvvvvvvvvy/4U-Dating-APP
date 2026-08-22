@@ -760,6 +760,12 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
 .topic-card--ai-hot .topic-top > span { color: #c34f73; }
 .topic-card--ai-life .topic-top > span { color: #4f796d; }
 .topic-card--ai-life .topic-card-action { color: #4f796d; }
+.topic-feed-grid { max-width: 620px !important; margin-inline: auto; }
+.topic-feed-grid .topic-card { min-height: 230px; padding: 20px; }
+.topic-feed-grid .topic-card h2 { margin-top: 3px; font-size: 23px; line-height: 1.42; }
+.topic-feed-grid .topic-card > p { font-size: 12px; line-height: 1.65; -webkit-line-clamp: 3; }
+.topic-feed-grid .topic-card footer { padding-top: 28px; font-size: 10px; }
+.topic-feed-sentinel { min-height: 84px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
 .topic-top > span { color: var(--pink); }
 .topic-follow, .follow-button { border-color: var(--line-strong); background: rgba(255,255,255,.8); }
 .topic-follow.is-active, .follow-button.is-active { color: #54766c; border-color: rgba(110,144,133,.38); background: var(--sage-soft); }

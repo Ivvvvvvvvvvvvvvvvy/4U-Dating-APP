@@ -9,7 +9,7 @@ function columnCount(width: number) {
   return 2;
 }
 
-export function MasonryFeed({ children, className = '', label = '内容流' }: { children: ReactNode; className?: string; label?: string }) {
+export function MasonryFeed({ children, className = '', label = '内容流', singleColumn = false }: { children: ReactNode; className?: string; label?: string; singleColumn?: boolean }) {
   const items = Children.toArray(children).flatMap((child) => {
     if (isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment) {
       return Children.toArray(child.props.children);
@@ -19,7 +19,7 @@ export function MasonryFeed({ children, className = '', label = '内容流' }: {
   const rootRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const frame = useRef<number | null>(null);
-  const [widths, setWidths] = useState<{ count: number; width: number; gap: number }>({ count: 2, width: 0, gap: 9 });
+  const [widths, setWidths] = useState<{ count: number; width: number; gap: number }>({ count: singleColumn ? 1 : 2, width: 0, gap: 9 });
   const [positions, setPositions] = useState<Position[]>([]);
   const [height, setHeight] = useState(0);
 
@@ -27,11 +27,11 @@ export function MasonryFeed({ children, className = '', label = '内容流' }: {
     const root = rootRef.current;
     if (!root) return;
     const width = root.clientWidth;
-    const count = columnCount(width);
+    const count = singleColumn ? 1 : columnCount(width);
     const gap = window.innerWidth >= 768 ? 14 : 9;
     const cardWidth = (width - gap * (count - 1)) / count;
     setWidths((current) => current.count === count && Math.abs(current.width - cardWidth) < .5 && current.gap === gap ? current : { count, width: cardWidth, gap });
-  }, []);
+  }, [singleColumn]);
 
   const placeItems = useCallback(() => {
     if (!widths.width) return;

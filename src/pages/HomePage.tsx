@@ -1,5 +1,5 @@
-import { Plus, RefreshCcw, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContentCard, type CardActions } from '../components/ContentCard';
 import { MobileBrandBar } from '../components/Navigation';
 import { MasonryFeed } from '../components/MasonryFeed';
@@ -14,7 +14,7 @@ import {
   type FeedCard,
 } from '../domain';
 import { activityFeed, currentUser, homeFeed, topicFeed } from '../mockData';
-import { generateTopicBatch, type AiTopicStream, type GeneratedTopicBatch } from '../topicGenerator';
+import { generateTopicBatch } from '../topicGenerator';
 import {
   canonicalPath,
   homeDefaults,
@@ -44,12 +44,7 @@ const secondaryTabs = {
     { value: 'movie', label: '电影' },
     { value: 'sport', label: '运动' },
   ],
-  topics: [
-    { value: 'hot', label: 'AI 精选' },
-    { value: 'relationship', label: '热点话题' },
-    { value: 'lifestyle', label: '生活话题' },
-    { value: 'expression', label: '轻表达' },
-  ],
+  topics: [{ value: 'hot', label: '全部话题' }],
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
 
 const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
@@ -160,20 +155,19 @@ function skeletonKinds(primary: HomePrimary): readonly ('activity' | 'person' | 
   return ['activity', 'person', 'topic', 'activity', 'activity', 'person'];
 }
 
-type AiTopicMode = 'mixed' | AiTopicStream;
 const TOPIC_POOL_SIZE = 50;
 
-function cardsForAiMode(
-  pools: Record<AiTopicStream, GeneratedTopicBatch>,
-  cursors: Record<AiTopicMode, number>,
-  mode: AiTopicMode,
-): FeedCard[] {
-  const cursor = cursors[mode];
-  if (mode === 'hot') return pools.hot.cards.slice(cursor, cursor + 10);
-  if (mode === 'lifestyle') return pools.lifestyle.cards.slice(cursor, cursor + 10);
-  const hot = pools.hot.cards.slice(cursor, cursor + 5);
-  const lifestyle = pools.lifestyle.cards.slice(cursor, cursor + 5);
-  return hot.flatMap((card, index) => lifestyle[index] ? [card, lifestyle[index]] : [card]);
+function generateMixedTopicCards(perStream: number): FeedCard[] {
+  const hot = generateTopicBatch('hot', perStream).cards;
+  const lifestyle = generateTopicBatch('lifestyle', perStream).cards;
+  const cards: FeedCard[] = [];
+  for (let index = 0; index < perStream; index += 5) {
+    const hotGroup = hot.slice(index, index + 5);
+    const lifeGroup = lifestyle.slice(index, index + 5);
+    const order = [hotGroup[0], lifeGroup[0], lifeGroup[1], hotGroup[1], hotGroup[2], lifeGroup[2], hotGroup[3], lifeGroup[3], lifeGroup[4], hotGroup[4]];
+    order.forEach((card) => { if (card) cards.push(card); });
+  }
+  return cards;
 }
 
 export type HomePageProps = {
@@ -203,21 +197,38 @@ export function HomePage({
   onNotifications,
   onCreate,
 }: HomePageProps) {
-  const [generatedPools, setGeneratedPools] = useState<Record<AiTopicStream, GeneratedTopicBatch>>(() => ({
-    hot: generateTopicBatch('hot', TOPIC_POOL_SIZE),
-    lifestyle: generateTopicBatch('lifestyle', TOPIC_POOL_SIZE),
-  }));
-  const [topicCursors, setTopicCursors] = useState<Record<AiTopicMode, number>>({ mixed: 0, hot: 0, lifestyle: 0 });
-  const [aiRefreshing, setAiRefreshing] = useState(false);
-  const aiMode: AiTopicMode = secondary === 'hot' ? 'mixed' : secondary === 'relationship' ? 'hot' : 'lifestyle';
-  const isAiTopicStream = primary === 'topics' && (secondary === 'hot' || secondary === 'relationship' || secondary === 'lifestyle');
-  const visibleCards = isAiTopicStream ? cardsForAiMode(generatedPools, topicCursors, aiMode) : cardsForRoute(primary, secondary, cardActions);
+  const [mixedTopicCards, setMixedTopicCards] = useState<FeedCard[]>(() => generateMixedTopicCards(TOPIC_POOL_SIZE));
+  const [loadingMoreTopics, setLoadingMoreTopics] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const topicSentinelRef = useRef<HTMLDivElement>(null);
+  const isTopicFeed = primary === 'topics';
+  const visibleCards = isTopicFeed ? mixedTopicCards : cardsForRoute(primary, secondary, cardActions);
   const lead = leadByPrimary[primary];
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
 
+  const loadMoreTopics = useCallback(() => {
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMoreTopics(true);
+    window.setTimeout(() => {
+      setMixedTopicCards((current) => [...current, ...generateMixedTopicCards(10)]);
+      loadingMoreRef.current = false;
+      setLoadingMoreTopics(false);
+    }, 280);
+  }, []);
+
+  useEffect(() => {
+    if (!isTopicFeed || !topicSentinelRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMoreTopics();
+    }, { rootMargin: '900px 0px' });
+    observer.observe(topicSentinelRef.current);
+    return () => observer.disconnect();
+  }, [isTopicFeed, loadMoreTopics]);
+
   const navigatePrimary = (nextPrimary: HomePrimary) => {
     if (nextPrimary === primary) { window.scrollTo({ top: 0, behavior: 'smooth' }); onRetry(); return; }
-    const remembered = localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
+    const remembered = nextPrimary === 'topics' ? 'hot' : localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
     onNavigate(canonicalPath({
       kind: 'home',
       primary: nextPrimary,
@@ -233,28 +244,6 @@ export function HomePage({
     onNavigate(canonicalPath({ kind: 'home', primary, secondary: homeDefaults[primary] }));
   };
 
-  const refreshAiTopics = () => {
-    if (aiRefreshing) return;
-    setAiRefreshing(true);
-    window.setTimeout(() => {
-      const step = aiMode === 'mixed' ? 5 : 10;
-      const poolLength = aiMode === 'mixed'
-        ? Math.min(generatedPools.hot.cards.length, generatedPools.lifestyle.cards.length)
-        : generatedPools[aiMode].cards.length;
-      const nextCursor = topicCursors[aiMode] + step;
-      if (nextCursor + step <= poolLength) {
-        setTopicCursors((current) => ({ ...current, [aiMode]: nextCursor }));
-      } else {
-        setGeneratedPools((current) => aiMode === 'mixed'
-          ? { hot: generateTopicBatch('hot', TOPIC_POOL_SIZE), lifestyle: generateTopicBatch('lifestyle', TOPIC_POOL_SIZE) }
-          : { ...current, [aiMode]: generateTopicBatch(aiMode, TOPIC_POOL_SIZE) });
-        setTopicCursors((current) => ({ ...current, [aiMode]: 0 }));
-      }
-      setAiRefreshing(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 420);
-  };
-
   return (
     <div className="page home-page screen-enter" data-screen-label="首页内容流">
       <MobileBrandBar onSearch={onSearch} onMessages={onNotifications} />
@@ -266,31 +255,23 @@ export function HomePage({
           onChange={navigatePrimary}
           className="primary-tabs"
         />
-        <TabBar
+        {primary !== 'topics' && <TabBar
           label={`${primaryTabs.find((tab) => tab.value === primary)?.label ?? '推荐'}筛选`}
           options={secondaryTabs[primary]}
           value={secondary}
           onChange={navigateSecondary}
           className="secondary-tabs"
-        />
+        />}
       </header>
 
       <div className="page-content">
         <div className="feed-lead">
           <div><h1>{lead.title}</h1><p>{lead.description}</p></div>
-          {isAiTopicStream ? (
-            <div className={'ai-topic-controls ai-topic-controls--' + aiMode}>
-              <span><Sparkles size={13}/>{aiMode === 'mixed' ? '热点 5 · 生活 5' : aiMode === 'hot' ? 'AI 热点 · 50+' : 'AI 生活 · 50+'}</span>
-              <button type="button" onClick={refreshAiTopics} disabled={aiRefreshing}>
-                <RefreshCcw size={14} className={aiRefreshing ? 'is-spinning' : ''}/>
-                {aiRefreshing ? '生成中…' : 'AI 换一批'}
-              </button>
-            </div>
-          ) : !loading && !error && !empty && <small>{visibleCards.length} 条</small>}
+          {!loading && !error && !empty && <small>{isTopicFeed ? '持续更新' : `${visibleCards.length} 条`}</small>}
         </div>
 
-        <MasonryFeed className="feed-grid" label="首页内容流">
-          {loading || aiRefreshing ? skeletonKinds(primary).map((kind, index) => (
+        <MasonryFeed className={'feed-grid' + (isTopicFeed ? ' topic-feed-grid' : '')} label="首页内容流" singleColumn={isTopicFeed}>
+          {loading ? skeletonKinds(primary).map((kind, index) => (
             <FeedSkeleton key={`${kind}-${index}`} kind={kind} />
           )) : error ? (
             <ErrorState onRetry={onRetry} />
@@ -311,14 +292,9 @@ export function HomePage({
             </>
           )}
         </MasonryFeed>
-        {!loading && !aiRefreshing && !error && !empty && visibleCards.length > 0 && (
-          isAiTopicStream ? (
-            <div className={'ai-topic-more ai-topic-more--' + aiMode}>
-              <span>{aiMode === 'mixed' ? '热点与生活 1:1 · 每类题库 50+' : '当前 10 个 · 题库 50+'}</span>
-              <button type="button" onClick={refreshAiTopics}><RefreshCcw size={15}/>继续换一批</button>
-            </div>
-          ) : <EndOfFeed />
-        )}
+        {!loading && !error && !empty && visibleCards.length > 0 && (isTopicFeed
+          ? <div ref={topicSentinelRef} className="topic-feed-sentinel" role="status"><span>{loadingMoreTopics ? '正在加载更多话题…' : '继续下滑，发现更多话题'}</span></div>
+          : <EndOfFeed />)}
       </div>
 
       <button type="button" className="floating-create" onClick={onCreate}>
