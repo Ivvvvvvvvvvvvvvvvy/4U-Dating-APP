@@ -1,16 +1,23 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, ChevronRight, CircleAlert, MessageCircle, Radio, Send, ShieldCheck, UsersRound } from 'lucide-react';
 import {
+  DiscussionContinueDecision,
+  DiscussionMatchMode,
   MessageDeliveryStatus,
   MessageKind,
   ThreadAction,
   ThreadKind,
+  TopicKind,
   type Message,
   type Person,
   type PersonId,
+  type StructuredPromptMessage,
   type Thread,
   type ThreadId,
+  type Topic,
 } from '../domain';
+import { ageBand, matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
+import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
 
@@ -44,6 +51,16 @@ export interface ChatPageProps {
   readonly onBack: () => void;
   readonly onSend: (request: SendMessageRequest) => void | Promise<void>;
   readonly onOpenContext?: (thread: Thread) => void;
+  readonly discussionRoom?: {
+    readonly topic: Topic;
+    readonly runtime: DiscussionRuntime;
+    readonly partner?: Person;
+    readonly onNextPrompt: (prompt: Pick<StructuredPromptMessage, 'promptStage' | 'text'>) => void;
+    readonly onContinue: () => void;
+    readonly onFinish: () => void;
+    readonly onLeave: () => void;
+    readonly onReport: () => void;
+  };
 }
 
 const transportOrder: readonly ChatTransport[] = ['WS', 'SSE', 'POLLING'];
@@ -59,14 +76,24 @@ export function ChatPage({
   onBack,
   onSend,
   onOpenContext,
+  discussionRoom,
 }: ChatPageProps) {
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
   const orderedMessages = useMemo(() => orderMessages(thread, messages), [thread, messages]);
-  const canSend = thread.allowedActions.includes(ThreadAction.SEND_MESSAGE);
+  const ended = Boolean(discussionRoom && [
+    DiscussionContinueDecision.FINISH,
+    DiscussionContinueDecision.LEFT_TEMPORARILY,
+    DiscussionContinueDecision.REPORTED,
+    DiscussionContinueDecision.BLOCKED,
+  ].includes(discussionRoom.runtime.myDecision));
+  const canSend = thread.allowedActions.includes(ThreadAction.SEND_MESSAGE) && !ended;
   const isOffline = connection.phase === 'OFFLINE';
   const trimmedDraft = draft.trim();
+  const nextPrompt = discussionRoom
+    ? structuredPrompts(discussionRoom.topic).find((prompt) => !messages.some((message) => message.kind === MessageKind.STRUCTURED_PROMPT && message.promptStage === prompt.stage))
+    : undefined;
 
   const submit = async () => {
     if (!trimmedDraft || submitting || !canSend || isOffline) return;
@@ -92,8 +119,10 @@ export function ChatPage({
       <header className="chat-header">
         <button type="button" className="icon-button" aria-label="返回消息列表" onClick={onBack}><ArrowLeft size={21} /></button>
         <div>
-          <span>{roomLabel(thread)}</span>
-          <h1 id="chat-title">{thread.title}</h1>
+          <span>{discussionRoom ? (discussionRoom.runtime.unlocked ? '已继续认识' : '有限资料讨论房') : roomLabel(thread)}</span>
+          <h1 id="chat-title">{discussionRoom?.partner && !discussionRoom.runtime.unlocked
+            ? `${discussionRoom.partner.displayName} · ${ageBand(discussionRoom.partner.age)}`
+            : thread.title}</h1>
         </div>
         {onOpenContext ? (
           <button type="button" className="icon-button" aria-label="查看会话关联内容" onClick={() => onOpenContext(thread)}><ChevronRight size={21} /></button>
@@ -106,8 +135,11 @@ export function ChatPage({
         <ShieldCheck size={16} />
         <span>{thread.kind === ThreadKind.ACTIVITY
           ? '活动房间只对有权限的参与者开放；集合细节仍按活动权限控制。'
-          : '不合适时可以停止会话、拉黑或举报；平台不会代你发送建议内容。'}</span>
+          : thread.kind === ThreadKind.TOPIC_DISCUSSION
+            ? '限时 1 对 1 讨论；平台不会代你发送建议内容。不合适可结束、暂时离开或举报。'
+            : '不合适时可以停止会话、拉黑或举报；平台不会代你发送建议内容。'}</span>
       </div>
+      {discussionRoom && <DiscussionContext room={discussionRoom} threadMode={thread.kind === ThreadKind.TOPIC_DISCUSSION ? thread.matchMode : DiscussionMatchMode.SAME_POSITION_SAME_REASON} />}
 
       <main className="message-stream" aria-live="polite">
         {orderedMessages.length ? orderedMessages.map(({ message, seq }) => (
@@ -124,6 +156,23 @@ export function ChatPage({
       </main>
 
       <footer className="chat-composer">
+        {discussionRoom && !ended && (
+          <div className="discussion-tools">
+            {nextPrompt && (
+              <button type="button" className="secondary-button" onClick={() => discussionRoom.onNextPrompt({ promptStage: nextPrompt.stage, text: nextPrompt.text })}>
+                下一阶段提示：{promptStageLabel(nextPrompt.stage)}
+              </button>
+            )}
+            <div className="discussion-end-actions">
+              <button type="button" className="primary-button" disabled={discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE} onClick={discussionRoom.onContinue}>
+                {discussionRoom.runtime.unlocked ? '已双向继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续，等待对方' : '继续认识'}
+              </button>
+              <button type="button" className="text-button" onClick={discussionRoom.onFinish}>结束讨论</button>
+              <button type="button" className="text-button" onClick={discussionRoom.onLeave}>暂时离开</button>
+              <button type="button" className="text-button" onClick={discussionRoom.onReport}>不适 / 举报</button>
+            </div>
+          </div>
+        )}
         {localError && <p className="composer-error" role="alert"><CircleAlert size={14} />{localError}</p>}
         {!canSend && <p className="composer-status">这个会话当前为只读</p>}
         {isOffline && <p className="composer-status">离线时不会排队发送，请联网后重试</p>}
@@ -241,6 +290,35 @@ function orderMessages(thread: Thread, messages: readonly Message[]) {
   });
   const appended = [...byId.values()].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
   return [...canonical, ...appended].map((message, index) => ({ message, seq: index + 1 }));
+}
+
+function DiscussionContext({
+  room,
+  threadMode,
+}: {
+  room: NonNullable<ChatPageProps['discussionRoom']>;
+  threadMode: DiscussionMatchMode;
+}) {
+  const copy = matchModeCopy(threadMode, room.topic, room.runtime.vote);
+  const mine = room.topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? voteLabels(room.topic, room.runtime.vote) : undefined;
+  return (
+    <section className="discussion-context">
+      <strong>{copy.title}</strong>
+      <p>
+        {room.partner ? `${room.partner.displayName} · ${ageBand(room.partner.age)} · ${room.partner.city}` : '对方资料有限展示'}
+        {mine?.position ? ` · 你的立场：${mine.position}` : ''}
+        {room.runtime.unlocked ? ' · 双方已同意继续认识' : ' · 完整资料尚未解锁'}
+      </p>
+    </section>
+  );
+}
+
+function promptStageLabel(stage: StructuredPromptMessage['promptStage']) {
+  if (stage === 'OPENING') return '开场';
+  if (stage === 'UNDERSTANDING') return '理解';
+  if (stage === 'CONDITION') return '条件';
+  if (stage === 'REFLECTION') return '迁移';
+  return '收束';
 }
 
 function roomLabel(thread: Thread) {

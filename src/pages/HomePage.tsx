@@ -45,17 +45,16 @@ const secondaryTabs = {
   ],
   topics: [
     { value: 'hot', label: '热门' },
-    { value: 'find-company', label: '找同行' },
-    { value: 'relationship', label: '认真关系' },
-    { value: 'lifestyle', label: '生活方式' },
-    { value: 'safety', label: '安全经验' },
+    { value: 'relationship', label: '关系议题' },
+    { value: 'lifestyle', label: '生活兴趣' },
+    { value: 'expression', label: '轻表达' },
   ],
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
 
 const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
   recommend: { title: '今天，想遇见什么？', description: '人物、活动机会与真实讨论，按推荐顺序呈现' },
   activities: { title: '加入一场真实活动', description: '只展示已经发布、可查看详情的活动' },
-  topics: { title: '从一个问题开始认识彼此', description: '表达观点，再决定是否加入讨论' },
+  topics: { title: '先聊话题，再决定是否认识', description: '关系议题负责表达观点，生活兴趣负责观察真实互动' },
 };
 
 const isWeekend = (startsAt: string) => {
@@ -133,12 +132,13 @@ function filterTopics(
     const entity = actions.resolveEntity(card);
     if (entity?.entityType !== FeedCardType.TOPIC) return false;
 
-    if (secondary === 'find-company') {
-      return entity.tags.some((tag) => tag.includes('同行'));
-    }
     if (secondary === 'relationship') return entity.kind === TopicKind.RELATIONSHIP_SCENARIO;
-    if (secondary === 'lifestyle') return entity.kind === TopicKind.LIFESTYLE_PROMPT;
-    if (secondary === 'safety') return entity.tags.some((tag) => tag.includes('安全'));
+    if (secondary === 'lifestyle') {
+      return entity.kind === TopicKind.LIFESTYLE_PROMPT && !entity.tags.some((tag) => tag === '轻表达' || tag === '近况');
+    }
+    if (secondary === 'expression') {
+      return entity.kind === TopicKind.LIFESTYLE_PROMPT && entity.tags.some((tag) => tag === '轻表达' || tag === '近况');
+    }
     return false;
   });
 }
@@ -242,10 +242,10 @@ export function HomePage({
           ) : empty || visibleCards.length === 0 ? (
             <EmptyState
               title="这一筛选暂时没有内容"
-              description="可以清除筛选继续看看，或发起一场你真正想参与的活动。"
+              description={primary === 'topics' ? '可以回到热门，看看关系议题或生活兴趣。' : '可以清除筛选继续看看，或发起一场你真正想参与的活动。'}
               actions={<>
                 <button type="button" className="secondary-button" onClick={clearFilter}>清除筛选</button>
-                <button type="button" className="primary-button" onClick={onCreate}>发起活动</button>
+                {primary !== 'topics' && <button type="button" className="primary-button" onClick={onCreate}>发起活动</button>}
               </>}
             />
           ) : (

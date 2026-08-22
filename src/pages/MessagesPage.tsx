@@ -79,7 +79,7 @@ export function MessagesPage({
   const visibleThreads = threads
     .filter((thread) => category === 'activities'
       ? thread.kind === ThreadKind.ACTIVITY
-      : thread.kind === ThreadKind.MATCH)
+      : thread.kind === ThreadKind.MATCH || thread.kind === ThreadKind.TOPIC_DISCUSSION)
     .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
   const unreadCount = category === 'notifications'
     ? notifications.filter((item) => item.unread).length

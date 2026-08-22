@@ -1,5 +1,6 @@
-import { Bookmark, CalendarDays, CheckCircle2, Clock3, Heart, MapPin, MessageCircle, Sparkles, UsersRound } from 'lucide-react';
-import { ActivityFulfillmentStatus, ActivityRecruitmentStatus, FeedAction, FeedCardType, VerificationStatus, type Activity, type ActivityOpportunity, type FeedCard, type Person, type Topic } from '../domain';
+import { Bookmark, CalendarDays, CheckCircle2, Heart, MapPin, MessageCircle, Sparkles, UsersRound } from 'lucide-react';
+import { ActivityFulfillmentStatus, ActivityRecruitmentStatus, FeedAction, FeedCardType, TopicKind, VerificationStatus, type Activity, type ActivityOpportunity, type FeedCard, type Person, type Topic } from '../domain';
+import { topicGenreLabel, topicPrimaryAction } from '../topicVote';
 import { SafeImage } from './SafeImage';
 
 export type CardActions = {
@@ -64,16 +65,22 @@ function PersonCard({ card, person, actions, compact = false }: { card: FeedCard
 }
 
 function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; actions: CardActions }) {
-  const followed = actions.followedTopics.has(topic.id);
-  const pending = actions.pendingKey === 'topic:' + topic.id;
+  const genre = topicGenreLabel(topic);
+  const action = topicPrimaryAction(topic);
   return (
     <article className="feed-card topic-card" data-card-type="TOPIC" data-card-id={card.cardId}>
       <button type="button" className="card-main-action" aria-label={'查看话题：' + topic.title} onClick={() => actions.onOpen(card)} />
       <div className="topic-pulse" aria-hidden="true"><i/><i/><i/></div>
-      <div className="topic-top"><span># {topic.tags[0]}</span>{(card.allowedActions as readonly FeedAction[]).includes(FeedAction.SAVE) && <button type="button" className={'topic-follow ' + (followed ? 'is-active' : '')} aria-pressed={followed} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onFollowTopic(topic); }}>{followed ? '已关注' : '关注'}</button>}</div>
+      <div className="topic-top">
+        <span>{genre} · {topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '两阶段投票' : '即时讨论'}</span>
+        <em className="topic-card-action">{action}</em>
+      </div>
       <h2 className="card-title-action" onClick={() => actions.onOpen(card)}>{topic.title}</h2>
-      <p>{topic.summary}</p>
-      <footer><span><MessageCircle size={14}/>{topic.replyCount} 条讨论</span><time><Clock3 size={13}/>{relativeTime(topic.lastActivityAt)}</time></footer>
+      <p>{topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? topic.scenario : topic.prompt}</p>
+      <footer>
+        <span><MessageCircle size={14}/>{action}</span>
+        <time>{topic.tags[0]}</time>
+      </footer>
     </article>
   );
 }
@@ -95,11 +102,6 @@ function relationshipLabel(person: Person) {
   if (person.relationshipGoal === 'LONG_TERM') return '期待长期关系';
   if (person.relationshipGoal === 'SERIOUS_DATING') return '认真了解';
   return '从相处开始探索';
-}
-
-function relativeTime(value: string) {
-  const hours = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 3_600_000));
-  return hours < 24 ? hours + ' 小时前' : Math.round(hours / 24) + ' 天前';
 }
 
 function activityCategory(activity: Activity) {
