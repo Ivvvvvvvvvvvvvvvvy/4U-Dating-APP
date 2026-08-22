@@ -638,6 +638,14 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
 .feed-lead h1 { font-family: var(--display-font); font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
 .feed-lead p { color: var(--muted); font-size: 10px; }
 .feed-lead small { color: var(--subtle); }
+.ai-topic-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.ai-topic-controls > span { display: inline-flex; align-items: center; gap: 4px; color: #577b70; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.ai-topic-controls button, .ai-topic-more button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(232,111,145,.24); border-radius: 999px; padding: 0 13px; color: var(--pink); background: var(--rose-soft); font-size: 11px; font-weight: 700; box-shadow: 0 6px 16px rgba(212,83,120,.08); }
+.ai-topic-controls button:disabled { opacity: .58; cursor: wait; }
+.is-spinning { animation: ai-topic-spin .8s linear infinite; }
+.ai-topic-more { margin: 15px auto 2px; padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-card); }
+.ai-topic-more span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+@keyframes ai-topic-spin { to { transform: rotate(360deg); } }
 .feed-region { padding-bottom: 24px; }
 
 .feed-card {
@@ -894,6 +902,11 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
   .floating-create { right: max(14px,calc((100vw - 390px) / 2 + 14px)); }
   .page { min-height: max(844px,100dvh); }
   .feed-region { padding-left: 9px; padding-right: 9px; }
+  .feed-lead { align-items: flex-start; gap: 9px; }
+  .ai-topic-controls { flex-direction: column; align-items: flex-end; gap: 5px; }
+  .ai-topic-controls > span { font-size: 9px; }
+  .ai-topic-controls button { min-height: 32px; padding-inline: 11px; }
+  .ai-topic-more { margin-inline: 2px; }
   .feed-card { border-radius: 18px; }
   .card-body { padding: 11px 10px 13px; }
   .messages-page { min-height: max(844px,100dvh); }

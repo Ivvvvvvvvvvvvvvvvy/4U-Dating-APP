@@ -1,5 +1,5 @@
-import { Plus } from 'lucide-react';
-import { useEffect } from 'react';
+import { Plus, RefreshCcw, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { ContentCard, type CardActions } from '../components/ContentCard';
 import { MobileBrandBar } from '../components/Navigation';
 import { MasonryFeed } from '../components/MasonryFeed';
@@ -14,6 +14,7 @@ import {
   type FeedCard,
 } from '../domain';
 import { activityFeed, currentUser, homeFeed, topicFeed } from '../mockData';
+import { generateTopicBatch, type AiTopicStream, type GeneratedTopicBatch } from '../topicGenerator';
 import {
   canonicalPath,
   homeDefaults,
@@ -44,10 +45,10 @@ const secondaryTabs = {
     { value: 'sport', label: '运动' },
   ],
   topics: [
-    { value: 'hot', label: '热门' },
+    { value: 'hot', label: '热点话题' },
     { value: 'find-company', label: '找同行' },
     { value: 'relationship', label: '认真关系' },
-    { value: 'lifestyle', label: '生活方式' },
+    { value: 'lifestyle', label: '生活话题' },
     { value: 'safety', label: '安全经验' },
   ],
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
@@ -186,7 +187,16 @@ export function HomePage({
   onNotifications,
   onCreate,
 }: HomePageProps) {
-  const visibleCards = cardsForRoute(primary, secondary, cardActions);
+  const [generatedBatches, setGeneratedBatches] = useState<Record<AiTopicStream, GeneratedTopicBatch>>(() => ({
+    hot: generateTopicBatch('hot'),
+    lifestyle: generateTopicBatch('lifestyle'),
+  }));
+  const [aiRefreshing, setAiRefreshing] = useState(false);
+  const aiStream: AiTopicStream = secondary === 'lifestyle' ? 'lifestyle' : 'hot';
+  const isAiTopicStream = primary === 'topics' && (secondary === 'hot' || secondary === 'lifestyle');
+  const visibleCards = isAiTopicStream
+    ? [...generatedBatches[aiStream].cards]
+    : cardsForRoute(primary, secondary, cardActions);
   const lead = leadByPrimary[primary];
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
 
@@ -206,6 +216,16 @@ export function HomePage({
 
   const clearFilter = () => {
     onNavigate(canonicalPath({ kind: 'home', primary, secondary: homeDefaults[primary] }));
+  };
+
+  const refreshAiTopics = () => {
+    if (aiRefreshing) return;
+    setAiRefreshing(true);
+    window.setTimeout(() => {
+      setGeneratedBatches((current) => ({ ...current, [aiStream]: generateTopicBatch(aiStream) }));
+      setAiRefreshing(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 420);
   };
 
   return (
@@ -231,11 +251,19 @@ export function HomePage({
       <div className="page-content">
         <div className="feed-lead">
           <div><h1>{lead.title}</h1><p>{lead.description}</p></div>
-          {!loading && !error && !empty && <small>{visibleCards.length} 条</small>}
+          {isAiTopicStream ? (
+            <div className="ai-topic-controls">
+              <span><Sparkles size={13}/>AI 持续生成</span>
+              <button type="button" onClick={refreshAiTopics} disabled={aiRefreshing}>
+                <RefreshCcw size={14} className={aiRefreshing ? 'is-spinning' : ''}/>
+                {aiRefreshing ? '生成中…' : 'AI 换一批'}
+              </button>
+            </div>
+          ) : !loading && !error && !empty && <small>{visibleCards.length} 条</small>}
         </div>
 
         <MasonryFeed className="feed-grid" label="首页内容流">
-          {loading ? skeletonKinds(primary).map((kind, index) => (
+          {loading || aiRefreshing ? skeletonKinds(primary).map((kind, index) => (
             <FeedSkeleton key={`${kind}-${index}`} kind={kind} />
           )) : error ? (
             <ErrorState onRetry={onRetry} />
@@ -256,7 +284,14 @@ export function HomePage({
             </>
           )}
         </MasonryFeed>
-        {!loading && !error && !empty && visibleCards.length > 0 && <EndOfFeed />}
+        {!loading && !aiRefreshing && !error && !empty && visibleCards.length > 0 && (
+          isAiTopicStream ? (
+            <div className="ai-topic-more">
+              <span>这一批由 AI 生成并经过安全模板约束</span>
+              <button type="button" onClick={refreshAiTopics}><RefreshCcw size={15}/>继续换一批</button>
+            </div>
+          ) : <EndOfFeed />
+        )}
       </div>
 
       <button type="button" className="floating-create" onClick={onCreate}>

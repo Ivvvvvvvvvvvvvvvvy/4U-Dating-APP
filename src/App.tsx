@@ -19,6 +19,7 @@ import { ChatPage } from './pages/ChatPage';
 import { CreateActivityPage, createEmptyActivityDraft } from './pages/CreateActivityPage';
 import { SearchPage } from './pages/SearchPage';
 import { randomId } from './randomId';
+import { findGeneratedTopicById, resolveGeneratedTopicEntity } from './topicGenerator';
 
 type PendingAction = { key: string; expectedVersion: number } | null;
 
@@ -130,7 +131,7 @@ export default function App() {
     onHeartPerson: heartPerson,
     onFollowTopic: followTopic,
     onOpenActivity: (activity) => navigate('/activities/' + activity.id, { state: { from: location.pathname + location.search, scrollY: rememberCurrentScroll() } }),
-    resolveEntity: resolveFeedCardEntity,
+    resolveEntity: (card) => resolveGeneratedTopicEntity(card) ?? resolveFeedCardEntity(card),
   }), [followedTopics, heartPerson, heartedPeople, location.pathname, location.search, navigate, openFromFeed, pending?.key, rememberCurrentScroll, saveActivity, savedActivities]);
 
   const refresh = () => { setRefreshing(true); window.setTimeout(() => { setRefreshing(false); setMessage('已刷新为最新安全快照'); }, 650); };
@@ -161,7 +162,7 @@ export default function App() {
     const person = findPersonById(route.id as never);
     if (person) detail = <PersonDetail person={person} suggestedActivity={activities[0]} hearted={heartedPeople.has(person.id)} hearting={pending?.key === 'person:' + person.id} onBack={routeBack} onHeart={() => heartPerson(person)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})}/>;
   } else if (route.kind === 'topic') {
-    const topic = findTopicById(route.id as never);
+    const topic = findGeneratedTopicById(route.id as never) ?? findTopicById(route.id as never);
     if (topic) detail = <TopicDetail topic={topic} relatedActivity={activities[1]} followed={followedTopics.has(topic.id)} onBack={routeBack} onFollow={() => followTopic(topic)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})} onToast={setMessage}/>;
   }
 
