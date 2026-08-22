@@ -553,10 +553,19 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .review-summary { padding: 13px; display: flex; gap: 9px; border: 1px solid rgba(34,211,238,.18); border-radius: 13px; color: var(--cyan); background: rgba(34,211,238,.05); }
 .review-summary strong { font-size: 10px; }
 .review-summary p { margin: 4px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
-.review-confirmation { display: flex !important; grid-template-columns: auto 1fr; align-items: flex-start; gap: 8px !important; }
+.review-confirmation { display: flex !important; flex-wrap: wrap; grid-template-columns: auto 1fr; align-items: flex-start; gap: 8px !important; }
 .review-confirmation input { width: 18px; min-height: 18px; }
-.review-confirmation span { color: var(--muted); line-height: 1.5; }
+.review-confirmation > span { flex: 1; min-width: 0; color: var(--muted); line-height: 1.5; }
 .form-error { display: flex; gap: 5px; color: var(--danger); font-size: 9px; }
+.validation-summary { padding: 13px; display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 9px; border: 1px solid rgba(200,79,104,.25); border-radius: 14px; color: var(--danger); background: #fff2f5; }
+.validation-summary strong { font-size: 11px; }
+.validation-summary ul { margin: 7px 0 0; padding-left: 17px; }
+.validation-summary li { margin-top: 3px; }
+.validation-summary button { min-height: 30px; padding: 0; border: 0; color: var(--danger); background: transparent; font-size: 10px; text-align: left; text-decoration: underline; text-underline-offset: 2px; }
+.field-error { color: var(--danger) !important; font-size: 9px !important; line-height: 1.45; }
+.create-layout :is(input,textarea)[aria-invalid='true'] { border-color: rgba(200,79,104,.7); box-shadow: 0 0 0 3px rgba(200,79,104,.1); }
+.review-confirmation:has(input[aria-invalid='true']) { padding: 10px; border: 1px solid rgba(200,79,104,.35); border-radius: 12px; background: #fff2f5; }
+.review-confirmation .field-error { flex-basis: 100%; margin-left: 26px; }
 .create-success { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .success-mark { width: 65px; height: 65px; display: grid; place-items: center; border-radius: 50%; color: var(--cyan); background: rgba(34,211,238,.1); }
 .create-success p { color: var(--muted); }

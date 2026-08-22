@@ -42,6 +42,7 @@ import {
   type Message,
   type MessageId,
   type Person,
+  type PersonFeedCard,
   type PersonId,
   type Thread,
   type ThreadId,
@@ -50,6 +51,7 @@ import {
   type TopicId,
   type CurrentUser,
 } from './domain';
+import { syntheticPeople, syntheticPersonFeedCards } from './syntheticPublicData';
 
 const media = (
   id: string,
@@ -98,166 +100,17 @@ const currentUserProfile: Person = {
   verification: verified,
 };
 
-export const people = [
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_lan',
-    entityVersion: 7,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '阿岚',
-    age: 28,
-    city: '上海',
-    occupation: '品牌设计师',
-    bio: '喜欢把周末过得慢一点，带相机但不急着按快门。',
-    relationshipGoal: RelationshipGoal.LONG_TERM,
-    mbti: MbtiType.INFP,
-    zodiac: ZodiacSign.PISCES,
-    interests: ['摄影', '夜游', '独立电影', '逛展'],
-    photos: [
-      media(
-        'lan_portrait',
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=84',
-        '阿岚的户外头像',
-      ),
-      media(
-        'lan_camera',
-        'https://images.unsplash.com/photo-1452780212940-6f5c0d14d848?auto=format&fit=crop&w=900&q=84',
-        '阿岚拍摄的胶片相机',
-      ),
-    ],
-    prompts: [
-      { prompt: '最近想完成的小事', answer: '在闭馆前再去一次喜欢的展，然后沿江走回家。' },
-      { prompt: '舒服的相处方式', answer: '能认真聊，也能安静看各自喜欢的东西。' },
-    ],
-    verification: verified,
-  },
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_zhou',
-    entityVersion: 5,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '小周',
-    age: 27,
-    city: '上海',
-    occupation: '产品经理',
-    bio: '抱石新手，周末也会沿苏州河骑行。',
-    relationshipGoal: RelationshipGoal.SERIOUS_DATING,
-    mbti: MbtiType.ENTP,
-    zodiac: ZodiacSign.GEMINI,
-    interests: ['抱石', '骑行', '咖啡', '现场音乐'],
-    photos: [
-      media(
-        'zhou_portrait',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=84',
-        '小周的户外头像',
-      ),
-    ],
-    prompts: [
-      { prompt: '我会主动安排', answer: '找路线、订场馆和带一壶咖啡。' },
-    ],
-    verification: verified,
-  },
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_ning',
-    entityVersion: 3,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '宁宁',
-    age: 26,
-    city: '上海',
-    occupation: '策展项目助理',
-    bio: '在城市里找新空间，也收集每次散步听到的歌。',
-    relationshipGoal: RelationshipGoal.OPEN_TO_EXPLORE,
-    mbti: MbtiType.ENFP,
-    zodiac: ZodiacSign.AQUARIUS,
-    interests: ['艺术', '黑胶', '散步', '旧书店'],
-    photos: [
-      media(
-        'ning_portrait',
-        'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=84',
-        '宁宁在街区散步的头像',
-      ),
-    ],
-    prompts: [
-      { prompt: '最近循环', answer: '一张适合夜里慢慢听完的城市流行专辑。' },
-    ],
-    verification: verified,
-  },
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_chen',
-    entityVersion: 6,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '陈一',
-    age: 29,
-    city: '上海',
-    occupation: '建筑师',
-    bio: '偏爱老街、胶片和不赶时间的旅行。',
-    relationshipGoal: RelationshipGoal.LONG_TERM,
-    mbti: MbtiType.INTJ,
-    zodiac: ZodiacSign.CAPRICORN,
-    interests: ['建筑', '胶片', 'City Walk', '爵士'],
-    photos: [
-      media(
-        'chen_portrait',
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=84',
-        '陈一的城市街景头像',
-      ),
-    ],
-    prompts: [
-      { prompt: '旅行偏好', answer: '一天只排一个目的地，其余交给路上遇到的街道。' },
-    ],
-    verification: verified,
-  },
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_muye',
-    entityVersion: 2,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '木野',
-    age: 30,
-    city: '上海',
-    occupation: '纪录片剪辑师',
-    bio: '爱看老电影，最近开始学做手冲。',
-    relationshipGoal: RelationshipGoal.SERIOUS_DATING,
-    mbti: MbtiType.ISFP,
-    zodiac: ZodiacSign.TAURUS,
-    interests: ['纪录片', '手冲咖啡', '徒步', '书店'],
-    photos: [
-      media(
-        'muye_portrait',
-        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=84',
-        '木野的自然光头像',
-      ),
-    ],
-    prompts: [{ prompt: '想聊很久的话题', answer: '一部作品如何改变我们看待日常。' }],
-    verification: verified,
-  },
-  {
-    entityType: FeedCardType.PERSON,
-    id: 'person_xiaoyu',
-    entityVersion: 4,
-    profileStatus: ProfileStatus.RECOMMENDABLE,
-    displayName: '小雨',
-    age: 27,
-    city: '上海',
-    occupation: '编辑',
-    bio: '读小说、做饭，也愿意为一场日落临时改路线。',
-    relationshipGoal: RelationshipGoal.LONG_TERM,
-    mbti: MbtiType.ISFJ,
-    zodiac: ZodiacSign.CANCER,
-    interests: ['阅读', '做饭', '公园', '旅行'],
-    photos: [
-      media(
-        'xiaoyu_portrait',
-        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=84',
-        '小雨在公园里的头像',
-      ),
-    ],
-    prompts: [{ prompt: '我珍惜的日常', answer: '一起做一顿不用拍照也很好吃的晚饭。' }],
-    verification: verified,
-  },
-] as const satisfies readonly Person[];
+/** Public, permission-aware candidate projections. The current user is intentionally separate. */
+export const people: readonly Person[] = syntheticPeople;
+
+/** Public person cards generated from the same projections as `people`. */
+export const personFeed: readonly PersonFeedCard[] = syntheticPersonFeedCards;
+
+const requirePersonFeedCard = (id: PersonId): PersonFeedCard => {
+  const card = personFeed.find((item) => item.entityId === id);
+  if (!card) throw new Error(`Missing synthetic public person card for ${id}`);
+  return card;
+};
 
 export const currentUser: CurrentUser = {
   profile: currentUserProfile,
@@ -938,6 +791,8 @@ export const threads = [
 
 const feedRequestId = 'request_home_20260822_a1' as const;
 const feedExpiresAt = '2026-08-22T23:59:59+08:00' as const;
+const lanHomeCard = requirePersonFeedCard('person_lan');
+const zhouHomeCard = requirePersonFeedCard('person_zhou');
 
 /**
  * RFC acceptance fixture: the first eight cards contain exactly two of each
@@ -974,32 +829,11 @@ export const homeFeed = [
     allowedActions: [FeedAction.VIEW_DETAIL, FeedAction.APPLY_TO_ACTIVITY, FeedAction.SAVE, FeedAction.HIDE, FeedAction.REPORT],
   },
   {
-    schemaVersion: '1.0',
+    ...lanHomeCard,
     cardId: 'feed_home_02_lan',
-    cardType: FeedCardType.PERSON,
-    pathType: PathType.PERSON,
-    entityId: 'person_lan',
-    entityVersion: 7,
     requestId: feedRequestId,
     rankPosition: 2,
-    reason: {
-      code: FeedReasonCode.SHARED_INTEREST,
-      headline: '你们都喜欢城市摄影与慢节奏散步',
-      explanation: '推荐依据来自双方允许公开解释的兴趣和个人回答。',
-      evidenceLabels: ['城市摄影', '慢节奏散步'],
-    },
     expiresAt: feedExpiresAt,
-    presentation: {
-      template: FeedPresentationTemplate.PERSON_PORTRAIT,
-      image: people[0].photos[0],
-      eyebrow: '真人已认证',
-      headline: '阿岚，28',
-      supportingText: '品牌设计师 · 上海',
-      badges: [{ label: '摄影', tone: 'ACCENT' }, { label: '夜游', tone: 'NEUTRAL' }],
-      facts: [{ label: '想认识', value: '长期关系' }],
-      primaryActionLabel: '表达红心',
-    },
-    allowedActions: [FeedAction.VIEW_DETAIL, FeedAction.HEART_PERSON, FeedAction.HIDE, FeedAction.REPORT],
   },
   {
     schemaVersion: '1.0',
@@ -1086,32 +920,11 @@ export const homeFeed = [
     allowedActions: [FeedAction.VIEW_DETAIL, FeedAction.START_ACTIVITY, FeedAction.EXPRESS_INTEREST, FeedAction.SAVE, FeedAction.HIDE, FeedAction.REPORT],
   },
   {
-    schemaVersion: '1.0',
+    ...zhouHomeCard,
     cardId: 'feed_home_06_zhou',
-    cardType: FeedCardType.PERSON,
-    pathType: PathType.PERSON,
-    entityId: 'person_zhou',
-    entityVersion: 5,
     requestId: feedRequestId,
     rankPosition: 6,
-    reason: {
-      code: FeedReasonCode.SHARED_INTEREST,
-      headline: '你们都愿意尝试轻运动',
-      explanation: '共同点来自双方公开的兴趣标签，不代表对方已表达意愿。',
-      evidenceLabels: ['轻运动', '城市骑行'],
-    },
     expiresAt: feedExpiresAt,
-    presentation: {
-      template: FeedPresentationTemplate.PERSON_PORTRAIT,
-      image: people[1].photos[0],
-      eyebrow: '真人已认证',
-      headline: '小周，27',
-      supportingText: '产品经理 · 上海',
-      badges: [{ label: '抱石', tone: 'ACCENT' }, { label: '咖啡', tone: 'NEUTRAL' }],
-      facts: [{ label: '想认识', value: '认真约会' }],
-      primaryActionLabel: '表达红心',
-    },
-    allowedActions: [FeedAction.VIEW_DETAIL, FeedAction.HEART_PERSON, FeedAction.HIDE, FeedAction.REPORT],
   },
   {
     schemaVersion: '1.0',

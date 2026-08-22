@@ -1,25 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, CircleAlert, Eye, FilePenLine, ShieldCheck } from 'lucide-react';
+import {
+  createEmptyActivityDraft,
+  validateActivityDraftStepOne,
+  validateActivityDraftStepTwo,
+  type ActivityDraftField,
+  type ActivityDraftIssue,
+  type ActivityDraftState,
+} from '../activityDraft';
 import { ActivityCategory, ActivityFormat, ParticipationMode } from '../domain';
 
-export interface ActivityDraftState {
-  readonly title: string;
-  readonly summary: string;
-  readonly category: ActivityCategory;
-  readonly format: ActivityFormat;
-  readonly participationMode: ParticipationMode;
-  readonly startsAt: string;
-  readonly endsAt: string;
-  readonly city: string;
-  readonly district: string;
-  readonly areaLabel: string;
-  readonly priceInYuan: string;
-  readonly capacityMinimum: number;
-  readonly capacityMaximum: number;
-  readonly agenda: string;
-  readonly atmosphereTags: string;
-  readonly safetyNotice: string;
-}
+export { createEmptyActivityDraft };
+export type { ActivityDraftState };
 
 export type CreateSubmissionState = 'idle' | 'saving' | 'submitting' | 'submitted' | 'error';
 
@@ -53,27 +45,6 @@ const participationOptions = [
   [ParticipationMode.MATCH_FORMATION, '匹配成行', '先表达兴趣，达到条件后再组建活动'],
 ] as const;
 
-export function createEmptyActivityDraft(): ActivityDraftState {
-  return {
-    title: '',
-    summary: '',
-    category: ActivityCategory.EXHIBITION,
-    format: ActivityFormat.PAIR,
-    participationMode: ParticipationMode.APPLICATION_REQUIRED,
-    startsAt: '',
-    endsAt: '',
-    city: '上海',
-    district: '',
-    areaLabel: '',
-    priceInYuan: '',
-    capacityMinimum: 2,
-    capacityMaximum: 2,
-    agenda: '',
-    atmosphereTags: '',
-    safetyNotice: '参加不代表表达好感；请在公共场所见面并尊重彼此边界。',
-  };
-}
-
 export function CreateActivityPage({
   draftId,
   step,
@@ -88,20 +59,20 @@ export function CreateActivityPage({
 }: CreateActivityPageProps) {
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [validationStep, setValidationStep] = useState<1 | 2 | null>(null);
   const busy = submissionState === 'saving' || submissionState === 'submitting';
-  const validStepOne = Boolean(draft.title.trim() && draft.summary.trim());
-  const validStepTwo = Boolean(
-    draft.startsAt
-      && draft.endsAt
-      && Date.parse(draft.endsAt) > Date.parse(draft.startsAt)
-      && draft.city.trim()
-      && draft.district.trim()
-      && draft.areaLabel.trim()
-      && draft.capacityMinimum >= 2
-      && draft.capacityMaximum >= draft.capacityMinimum,
-  );
+  const stepOneIssues = validateActivityDraftStepOne(draft);
+  const stepTwoIssues = validateActivityDraftStepTwo(draft, reviewConfirmed);
+  const visibleIssues = validationStep === step ? (step === 1 ? stepOneIssues : stepTwoIssues) : [];
+
+  useEffect(() => {
+    if (validationStep !== step) return;
+    const firstIssue = step === 1 ? stepOneIssues[0] : stepTwoIssues[0];
+    if (firstIssue) focusInput(firstIssue.inputId);
+  }, [step, validationStep]);
 
   const update = <K extends keyof ActivityDraftState>(key: K, value: ActivityDraftState[K]) => {
+    setActionError('');
     onDraftChange({ ...draft, [key]: value });
   };
 
@@ -122,10 +93,42 @@ export function CreateActivityPage({
   };
 
   const submit = async () => {
-    if (!validStepTwo || !reviewConfirmed || busy) return;
+    if (busy) return;
+    if (stepOneIssues.length) {
+      setValidationStep(1);
+      if (step === 1) focusIssue(stepOneIssues[0]);
+      else onStepChange(1);
+      return;
+    }
+    if (stepTwoIssues.length) {
+      setValidationStep(2);
+      focusIssue(stepTwoIssues[0]);
+      return;
+    }
     setActionError('');
+    setValidationStep(null);
     try { await onSubmitForReview(draft); }
     catch (error) { setActionError(error instanceof Error ? error.message : '提交状态尚未确认，请稍后重试'); }
+  };
+
+  const continueToStepTwo = () => {
+    if (busy) return;
+    if (stepOneIssues.length) {
+      setValidationStep(1);
+      focusIssue(stepOneIssues[0]);
+      return;
+    }
+    setValidationStep(null);
+    onStepChange(2);
+  };
+
+  const issueFor = (field: ActivityDraftField) => visibleIssues.find((issue) => issue.field === field);
+  const inputState = (field: ActivityDraftField) => {
+    const issue = issueFor(field);
+    return {
+      'aria-invalid': issue ? true : undefined,
+      'aria-describedby': issue ? `${issue.inputId}-error` : undefined,
+    };
   };
 
   if (submissionState === 'submitted') {
@@ -151,6 +154,7 @@ export function CreateActivityPage({
       {step === 1 ? (
         <main className="form-section">
           <div className="form-intro"><span>第一步 · 公开信息</span><h2>先说明要一起做什么</h2><p>这些内容将在活动通过审核后公开展示。</p></div>
+          <ValidationSummary step={1} issues={visibleIssues} />
 
           <fieldset>
             <legend>活动类型</legend>
@@ -160,12 +164,14 @@ export function CreateActivityPage({
           </fieldset>
 
           <label>活动标题
-            <input value={draft.title} maxLength={48} placeholder="例如：莫奈夜展后，沿江散步 40 分钟" onChange={(event) => update('title', event.target.value)} />
+            <input id="activity-title" {...inputState('title')} value={draft.title} maxLength={48} placeholder="例如：莫奈夜展后，沿江散步 40 分钟" onChange={(event) => update('title', event.target.value)} />
             <small>{draft.title.length}/48</small>
+            <FieldError issue={issueFor('title')} />
           </label>
           <label>活动简介
-            <textarea value={draft.summary} maxLength={160} rows={3} placeholder="说明活动内容、节奏，以及适合怎样的同行者" onChange={(event) => update('summary', event.target.value)} />
+            <textarea id="activity-summary" {...inputState('summary')} value={draft.summary} maxLength={160} rows={3} placeholder="说明活动内容、节奏，以及适合怎样的同行者" onChange={(event) => update('summary', event.target.value)} />
             <small>{draft.summary.length}/160</small>
+            <FieldError issue={issueFor('summary')} />
           </label>
 
           <fieldset>
@@ -184,30 +190,33 @@ export function CreateActivityPage({
               ))}
             </div>
           </fieldset>
+          {actionError && <p className="form-error" role="alert"><CircleAlert size={15} />{actionError}</p>}
 
           <div className="form-actions">
             {onSaveDraft && <button type="button" className="secondary-button" disabled={busy} onClick={save}><FilePenLine size={16} />保存草稿</button>}
-            <button type="button" className="primary-button" disabled={!validStepOne || busy} onClick={() => onStepChange(2)}>下一步：时间与规则</button>
+            <button type="button" className="primary-button" disabled={busy} onClick={continueToStepTwo}>下一步：时间与规则</button>
           </div>
         </main>
       ) : (
         <main className="form-section">
           <div className="form-intro"><span>第二步 · 履约信息</span><h2>确认时间、区域与参与规则</h2><p>公开区域不应包含门牌、手机号或私人住址。</p></div>
+          <ValidationSummary step={2} issues={visibleIssues} />
 
           <div className="form-grid">
-            <label>开始时间<input type="datetime-local" value={draft.startsAt} onChange={(event) => update('startsAt', event.target.value)} /></label>
-            <label>结束时间<input type="datetime-local" value={draft.endsAt} min={draft.startsAt} onChange={(event) => update('endsAt', event.target.value)} /></label>
-            <label>城市<input value={draft.city} onChange={(event) => update('city', event.target.value)} /></label>
-            <label>行政区<input value={draft.district} placeholder="例如：徐汇区" onChange={(event) => update('district', event.target.value)} /></label>
+            <label>开始时间<input id="activity-starts-at" {...inputState('startsAt')} type="datetime-local" value={draft.startsAt} onChange={(event) => update('startsAt', event.target.value)} /><FieldError issue={issueFor('startsAt')} /></label>
+            <label>结束时间<input id="activity-ends-at" {...inputState('endsAt')} type="datetime-local" value={draft.endsAt} min={draft.startsAt} onChange={(event) => update('endsAt', event.target.value)} /><FieldError issue={issueFor('endsAt')} /></label>
+            <label>城市<input id="activity-city" {...inputState('city')} value={draft.city} onChange={(event) => update('city', event.target.value)} /><FieldError issue={issueFor('city')} /></label>
+            <label>行政区<input id="activity-district" {...inputState('district')} value={draft.district} placeholder="例如：徐汇区" onChange={(event) => update('district', event.target.value)} /><FieldError issue={issueFor('district')} /></label>
           </div>
           <label>公开活动区域
-            <input value={draft.areaLabel} placeholder="例如：徐汇滨江公共文化区域" onChange={(event) => update('areaLabel', event.target.value)} />
+            <input id="activity-area-label" {...inputState('areaLabel')} value={draft.areaLabel} placeholder="例如：徐汇滨江公共文化区域" onChange={(event) => update('areaLabel', event.target.value)} />
             <small><Eye size={13} /> 所有人可见；精确集合点应在确认参与后另行提供</small>
+            <FieldError issue={issueFor('areaLabel')} />
           </label>
 
           <div className="form-grid">
-            <label>最低成行人数<input type="number" min={2} max={draft.capacityMaximum} disabled={draft.format === ActivityFormat.PAIR} value={draft.capacityMinimum} onChange={(event) => update('capacityMinimum', Number(event.target.value))} /></label>
-            <label>最多参与人数<input type="number" min={draft.capacityMinimum} max={20} disabled={draft.format === ActivityFormat.PAIR} value={draft.capacityMaximum} onChange={(event) => update('capacityMaximum', Number(event.target.value))} /></label>
+            <label>最低成行人数<input id="activity-capacity-minimum" {...inputState('capacityMinimum')} type="number" min={draft.format === ActivityFormat.PAIR ? 2 : 3} max={draft.capacityMaximum} disabled={draft.format === ActivityFormat.PAIR} value={draft.capacityMinimum} onChange={(event) => update('capacityMinimum', Number(event.target.value))} /><FieldError issue={issueFor('capacityMinimum')} /></label>
+            <label>最多参与人数<input id="activity-capacity-maximum" {...inputState('capacityMaximum')} type="number" min={draft.capacityMinimum} max={20} disabled={draft.format === ActivityFormat.PAIR} value={draft.capacityMaximum} onChange={(event) => update('capacityMaximum', Number(event.target.value))} /><FieldError issue={issueFor('capacityMaximum')} /></label>
           </div>
           <label>预计人均费用（元，可留空）<input inputMode="decimal" value={draft.priceInYuan} placeholder="例如：88" onChange={(event) => update('priceInYuan', event.target.value.replace(/[^0-9.]/g, ''))} /></label>
           <label>活动流程<textarea rows={4} value={draft.agenda} placeholder="每行一个环节，例如：18:30 集合并一起观展" onChange={(event) => update('agenda', event.target.value)} /></label>
@@ -218,18 +227,47 @@ export function CreateActivityPage({
             <ShieldCheck size={20} />
             <div><strong>下一步是提交审核，不是直接发布</strong><p>平台会审核公开信息、时间地点与安全规则。审核通过后活动才会进入推荐和搜索。</p></div>
           </section>
-          <label className="review-confirmation"><input type="checkbox" checked={reviewConfirmed} onChange={(event) => setReviewConfirmed(event.target.checked)} /><span>我确认公开信息真实，且不包含精确集合点或他人隐私。</span></label>
+          <label className="review-confirmation"><input id="activity-review-confirmed" {...inputState('reviewConfirmed')} type="checkbox" checked={reviewConfirmed} onChange={(event) => { setReviewConfirmed(event.target.checked); setActionError(''); }} /><span>我确认公开信息真实，且不包含精确集合点或他人隐私。</span><FieldError issue={issueFor('reviewConfirmed')} /></label>
           {(actionError || (submissionState === 'error' && submissionMessage)) && <p className="form-error" role="alert"><CircleAlert size={15} />{actionError || submissionMessage}</p>}
 
           <div className="form-actions">
             <button type="button" className="secondary-button" disabled={busy} onClick={() => onStepChange(1)}>上一步</button>
             {onSaveDraft && <button type="button" className="secondary-button" disabled={busy} onClick={save}>保存草稿</button>}
-            <button type="button" className="primary-button" disabled={!validStepTwo || !reviewConfirmed || busy} onClick={submit}>{submissionState === 'submitting' ? '正在提交审核…' : '提交审核'}</button>
+            <button type="button" className="primary-button" disabled={busy} onClick={submit}>{submissionState === 'submitting' ? '正在提交审核…' : '提交审核'}</button>
           </div>
         </main>
       )}
     </section>
   );
+}
+
+function ValidationSummary({ step, issues }: { step: 1 | 2; issues: readonly ActivityDraftIssue[] }) {
+  if (!issues.length) return null;
+  return (
+    <section className="validation-summary" role="alert" aria-live="polite">
+      <CircleAlert size={18} />
+      <div>
+        <strong>请完成以下 {issues.length} 项后{step === 1 ? '进入下一步' : '提交审核'}</strong>
+        <ul>{issues.map((issue) => <li key={issue.field}><button type="button" onClick={() => focusIssue(issue)}>{issue.message}</button></li>)}</ul>
+      </div>
+    </section>
+  );
+}
+
+function FieldError({ issue }: { issue?: ActivityDraftIssue }) {
+  return issue ? <small className="field-error" id={`${issue.inputId}-error`}><CircleAlert size={13} />{issue.message}</small> : null;
+}
+
+function focusIssue(issue: ActivityDraftIssue) {
+  focusInput(issue.inputId);
+}
+
+function focusInput(inputId: string) {
+  requestAnimationFrame(() => {
+    const input = document.getElementById(inputId);
+    input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input?.focus({ preventScroll: true });
+  });
 }
 
 function shortDraftId(draftId: string) {

@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build --outDir dist/client && bash scripts/package-site.sh",
+    "build": "tsc -b && vite build --outDir dist/client && node scripts/check-client-privacy.mjs && bash scripts/package-site.sh",
     "preview": "vite preview --host 0.0.0.0",
+    "generate:profiles-public": "node scripts/generate-synthetic-public-data.mjs",
     "test:smoke": "node tests/smoke.mjs",
     "test:responsive": "node tests/responsive.mjs",
     "test:mobile-overlap": "node tests/mobile-overlap.mjs",
-    "test:contracts": "node tests/contracts.mjs"
+    "test:contracts": "node tests/contracts.mjs",
+    "test:create-activity": "node tests/create-activity.mjs",
+    "test:profiles": "node tests/synthetic-profiles.mjs"
   },
   "dependencies": {
     "lucide-react": "latest",
