@@ -6,6 +6,11 @@ export function Modal({ title, children, onClose, className = '' }: { title: str
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    const detailRail = document.querySelector<HTMLElement>('.detail-rail');
+    const previousDetailOverflow = detailRail?.style.overflow ?? '';
+    document.body.style.overflow = 'hidden';
+    if (detailRail) detailRail.style.overflow = 'hidden';
     dialogRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -18,7 +23,12 @@ export function Modal({ title, children, onClose, className = '' }: { title: str
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previous?.focus(); };
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      if (detailRail) detailRail.style.overflow = previousDetailOverflow;
+      previous?.focus();
+    };
   }, [onClose]);
 
   return (

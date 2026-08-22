@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:smoke": "node tests/smoke.mjs",
     "test:responsive": "node tests/responsive.mjs",
+    "test:mobile-overlap": "node tests/mobile-overlap.mjs",
     "test:contracts": "node tests/contracts.mjs"
   },
   "dependencies": {
