@@ -1,113 +1,267 @@
-import { useMemo, useRef, useState } from 'react';
-import type { Activity, Person } from '../data';
-import { activities, people, topicCards } from '../data';
-import { ActivityCard } from '../components/ActivityCard';
-import { PersonCard } from '../components/PersonCard';
-import { BellIcon, PlusIcon, SearchIcon } from '../components/Icons';
-import { SearchPanel } from '../components/SearchPanel';
+import { Plus } from 'lucide-react';
+import { useEffect } from 'react';
+import { ContentCard, type CardActions } from '../components/ContentCard';
+import { MobileBrandBar } from '../components/Navigation';
+import { MasonryFeed } from '../components/MasonryFeed';
+import { EmptyState, EndOfFeed, ErrorState, FeedSkeleton } from '../components/StatusUI';
+import { TabBar, type TabOption } from '../components/TabBar';
+import {
+  ActivityCategory,
+  ActivityFormat,
+  FeedCardType,
+  FeedReasonCode,
+  TopicKind,
+  type FeedCard,
+} from '../domain';
+import { activityFeed, currentUser, homeFeed, topicFeed } from '../mockData';
+import {
+  canonicalPath,
+  homeDefaults,
+  type HomePrimary,
+  type HomeSecondary,
+} from '../router';
 
-type PrimaryTab = '推荐' | '活动' | '话题';
+const primaryTabs = [
+  { value: 'recommend', label: '推荐' },
+  { value: 'activities', label: '活动' },
+  { value: 'topics', label: '话题' },
+] as const satisfies readonly TabOption<HomePrimary>[];
 
-const subTabs: Record<PrimaryTab, string[]> = {
-  推荐: ['为你', '附近', '本周末', '新加入'],
-  活动: ['全部', '双人同行', '多人小组', '展览', '运动', '音乐'],
-  话题: ['热门', '找同行', '约会灵感', '安全经验'],
+const secondaryTabs = {
+  recommend: [
+    { value: 'for-you', label: '为你' },
+    { value: 'nearby', label: '附近' },
+    { value: 'weekend', label: '本周末' },
+    { value: 'new', label: '新加入' },
+  ],
+  activities: [
+    { value: 'all', label: '全部' },
+    { value: 'weekend', label: '本周末' },
+    { value: 'duo', label: '双人同行' },
+    { value: 'group', label: '多人小组' },
+    { value: 'exhibition', label: '展览' },
+    { value: 'movie', label: '电影' },
+    { value: 'sport', label: '运动' },
+  ],
+  topics: [
+    { value: 'hot', label: '热门' },
+    { value: 'find-company', label: '找同行' },
+    { value: 'relationship', label: '认真关系' },
+    { value: 'lifestyle', label: '生活方式' },
+    { value: 'safety', label: '安全经验' },
+  ],
+} as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
+
+const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
+  recommend: { title: '今天，想遇见什么？', description: '人物、活动机会与真实讨论，按推荐顺序呈现' },
+  activities: { title: '加入一场真实活动', description: '只展示已经发布、可查看详情的活动' },
+  topics: { title: '从一个问题开始认识彼此', description: '表达观点，再决定是否加入讨论' },
 };
 
-type Props = {
-  primary: PrimaryTab;
-  secondary: Record<PrimaryTab, string>;
-  saved: Set<string>;
-  onPrimary: (tab: PrimaryTab) => void;
-  onSecondary: (tab: PrimaryTab, sub: string) => void;
-  onSave: (id: string) => void;
-  onOpenActivity: (activity: Activity) => void;
-  onOpenPerson: (person: Person, activity: Activity) => void;
-  onCreate: () => void;
-  onGoMessages: () => void;
+const isWeekend = (startsAt: string) => {
+  const date = new Date(`${startsAt.slice(0, 10)}T12:00:00Z`);
+  return date.getUTCDay() === 0 || date.getUTCDay() === 6;
 };
 
-export function HomePage({ primary, secondary, saved, onPrimary, onSecondary, onSave, onOpenActivity, onOpenPerson, onCreate, onGoMessages }: Props) {
-  const pageRef = useRef<HTMLDivElement>(null);
-  const [searching, setSearching] = useState(false);
+const includesWeekend = (card: FeedCard) =>
+  [...card.reason.evidenceLabels, card.presentation.eyebrow, card.presentation.supportingText]
+    .some((value) => value.includes('周末'));
 
-  const filtered = useMemo(() => {
-    const sub = secondary[primary];
-    if (primary === '推荐') {
-      if (sub === '附近') return [...activities].sort((a, b) => Number(a.distance.split(' ')[0]) - Number(b.distance.split(' ')[0]));
-      if (sub === '本周末') return activities.slice(0, 2);
-      if (sub === '新加入') return [...activities].reverse();
-      return activities;
+function filterRecommendation(
+  cards: readonly FeedCard[],
+  secondary: HomeSecondary,
+  actions: CardActions,
+): FeedCard[] {
+  if (secondary === 'for-you') return [...cards];
+
+  return cards.filter((card) => {
+    const entity = actions.resolveEntity(card);
+
+    if (secondary === 'nearby') {
+      if (card.reason.code === FeedReasonCode.NEARBY_AREA) return true;
+      if (entity?.entityType === FeedCardType.PERSON) {
+        return entity.city === currentUser.profile.city;
+      }
+      if (entity?.entityType === FeedCardType.ACTIVITY
+        || entity?.entityType === FeedCardType.ACTIVITY_OPPORTUNITY) {
+        return entity.publicLocation.city === currentUser.profile.city;
+      }
+      return false;
     }
-    if (primary !== '活动') return activities;
-    if (sub === '双人同行') return activities.filter((item) => item.kind === 'duo');
-    if (sub === '多人小组') return activities.filter((item) => item.kind === 'group');
-    if (sub === '展览') return activities.filter((item) => item.category === '展览');
-    if (sub === '运动') return activities.filter((item) => item.category === '运动');
-    if (sub === '音乐') return activities.filter((item) => item.category === '音乐');
-    return activities;
-  }, [primary, secondary]);
-  const visibleTopics = secondary.话题 === '热门' ? topicCards : topicCards.filter((topic) => topic.tag === secondary.话题);
+
+    if (secondary === 'weekend') {
+      if (entity?.entityType === FeedCardType.ACTIVITY) return isWeekend(entity.schedule.startsAt);
+      return includesWeekend(card);
+    }
+
+    if (secondary === 'new') return card.cardType === FeedCardType.PERSON;
+    return true;
+  });
+}
+
+function filterActivities(
+  cards: readonly FeedCard[],
+  secondary: HomeSecondary,
+  actions: CardActions,
+): FeedCard[] {
+  return cards.filter((card) => {
+    if (card.cardType !== FeedCardType.ACTIVITY) return false;
+    if (secondary === 'all') return true;
+
+    const entity = actions.resolveEntity(card);
+    if (entity?.entityType !== FeedCardType.ACTIVITY) return false;
+
+    if (secondary === 'weekend') return isWeekend(entity.schedule.startsAt);
+    if (secondary === 'duo') return entity.format === ActivityFormat.PAIR;
+    if (secondary === 'group') return entity.format === ActivityFormat.GROUP;
+    if (secondary === 'exhibition') return entity.category === ActivityCategory.EXHIBITION;
+    if (secondary === 'movie') return entity.category === ActivityCategory.FILM;
+    if (secondary === 'sport') return entity.category === ActivityCategory.SPORT;
+    return false;
+  });
+}
+
+function filterTopics(
+  cards: readonly FeedCard[],
+  secondary: HomeSecondary,
+  actions: CardActions,
+): FeedCard[] {
+  return cards.filter((card) => {
+    if (card.cardType !== FeedCardType.TOPIC) return false;
+    if (secondary === 'hot') return true;
+
+    const entity = actions.resolveEntity(card);
+    if (entity?.entityType !== FeedCardType.TOPIC) return false;
+
+    if (secondary === 'find-company') {
+      return entity.tags.some((tag) => tag.includes('同行'));
+    }
+    if (secondary === 'relationship') return entity.kind === TopicKind.RELATIONSHIP_SCENARIO;
+    if (secondary === 'lifestyle') return entity.kind === TopicKind.LIFESTYLE_PROMPT;
+    if (secondary === 'safety') return entity.tags.some((tag) => tag.includes('安全'));
+    return false;
+  });
+}
+
+function cardsForRoute(
+  primary: HomePrimary,
+  secondary: HomeSecondary,
+  actions: CardActions,
+): FeedCard[] {
+  if (primary === 'activities') return filterActivities(activityFeed, secondary, actions);
+  if (primary === 'topics') return filterTopics(topicFeed, secondary, actions);
+  return filterRecommendation(homeFeed, secondary, actions);
+}
+
+function skeletonKinds(primary: HomePrimary): readonly ('activity' | 'person' | 'topic')[] {
+  if (primary === 'activities') return ['activity', 'activity', 'activity', 'activity'];
+  if (primary === 'topics') return ['topic', 'topic', 'topic', 'topic'];
+  return ['activity', 'person', 'topic', 'activity', 'activity', 'person'];
+}
+
+export type HomePageProps = {
+  primary: HomePrimary;
+  secondary: HomeSecondary;
+  cardActions: CardActions;
+  loading?: boolean;
+  error?: boolean | string;
+  empty?: boolean;
+  onRetry: () => void;
+  onNavigate: (path: string) => void;
+  onSearch: () => void;
+  onNotifications: () => void;
+  onCreate: () => void;
+};
+
+export function HomePage({
+  primary,
+  secondary,
+  cardActions,
+  loading = false,
+  error = false,
+  empty = false,
+  onRetry,
+  onNavigate,
+  onSearch,
+  onNotifications,
+  onCreate,
+}: HomePageProps) {
+  const visibleCards = cardsForRoute(primary, secondary, cardActions);
+  const lead = leadByPrimary[primary];
+  useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
+
+  const navigatePrimary = (nextPrimary: HomePrimary) => {
+    if (nextPrimary === primary) { window.scrollTo({ top: 0, behavior: 'smooth' }); onRetry(); return; }
+    const remembered = localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
+    onNavigate(canonicalPath({
+      kind: 'home',
+      primary: nextPrimary,
+      secondary: remembered ?? homeDefaults[nextPrimary],
+    }));
+  };
+
+  const navigateSecondary = (nextSecondary: HomeSecondary) => {
+    onNavigate(canonicalPath({ kind: 'home', primary, secondary: nextSecondary }));
+  };
+
+  const clearFilter = () => {
+    onNavigate(canonicalPath({ kind: 'home', primary, secondary: homeDefaults[primary] }));
+  };
 
   return (
-    <div className="page home-page" ref={pageRef}>
-      <header className="home-header">
-        <div className="wordmark"><span>4</span>U<i></i></div>
-        <div className="header-actions">
-          <button aria-label="搜索" onClick={() => setSearching(true)}><SearchIcon size={22} /></button>
-          <button aria-label="通知" className="has-badge" onClick={onGoMessages}><BellIcon size={22} /><i></i></button>
-        </div>
+    <div className="page home-page screen-enter">
+      <MobileBrandBar onSearch={onSearch} onMessages={onNotifications} />
+      <header className="channel-header">
+        <TabBar
+          label="首页内容频道"
+          options={primaryTabs}
+          value={primary}
+          onChange={navigatePrimary}
+          className="primary-tabs"
+        />
+        <TabBar
+          label={`${primaryTabs.find((tab) => tab.value === primary)?.label ?? '推荐'}筛选`}
+          options={secondaryTabs[primary]}
+          value={secondary}
+          onChange={navigateSecondary}
+          className="secondary-tabs"
+        />
       </header>
 
-      <nav className="primary-tabs" aria-label="内容频道">
-        {(['推荐', '活动', '话题'] as PrimaryTab[]).map((tab) => (
-          <button key={tab} className={primary === tab ? 'is-active' : ''} onClick={() => onPrimary(tab)}>{tab}</button>
-        ))}
-      </nav>
+      <div className="page-content">
+        <div className="feed-lead">
+          <div><h1>{lead.title}</h1><p>{lead.description}</p></div>
+          {!loading && !error && !empty && <small>{visibleCards.length} 条</small>}
+        </div>
 
-      <nav className="secondary-tabs" aria-label={`${primary}分类`}>
-        {subTabs[primary].map((sub) => (
-          <button key={sub} className={secondary[primary] === sub ? 'is-active' : ''} onClick={() => onSecondary(primary, sub)}>{sub}</button>
-        ))}
-      </nav>
+        <MasonryFeed className="feed-grid" label="首页内容流">
+          {loading ? skeletonKinds(primary).map((kind, index) => (
+            <FeedSkeleton key={`${kind}-${index}`} kind={kind} />
+          )) : error ? (
+            <ErrorState onRetry={onRetry} />
+          ) : empty || visibleCards.length === 0 ? (
+            <EmptyState
+              title="这一筛选暂时没有内容"
+              description="可以清除筛选继续看看，或发起一场你真正想参与的活动。"
+              actions={<>
+                <button type="button" className="secondary-button" onClick={clearFilter}>清除筛选</button>
+                <button type="button" className="primary-button" onClick={onCreate}>发起活动</button>
+              </>}
+            />
+          ) : (
+            <>
+              {visibleCards.map((card) => (
+                <ContentCard key={card.cardId} card={card} actions={cardActions} />
+              ))}
+            </>
+          )}
+        </MasonryFeed>
+        {!loading && !error && !empty && visibleCards.length > 0 && <EndOfFeed />}
+      </div>
 
-      {primary === '话题' ? (
-        <section className="topic-grid screen-enter">
-          {visibleTopics.map((topic, index) => (
-            <article key={topic.id} className="topic-card" style={{ '--topic-color': topic.color } as React.CSSProperties}>
-              <span>{topic.tag}</span>
-              <h3>{topic.title}</h3>
-              <div><i>{String(index + 1).padStart(2, '0')}</i><small>{topic.replies} 条讨论</small></div>
-            </article>
-          ))}
-        </section>
-      ) : (
-        <>
-          <div className="feed-intro screen-enter">
-            <p>{primary === '推荐' ? '今天，和谁去哪里？' : secondary[primary] === '全部' ? '找到你想加入的真实活动' : `看看${secondary[primary]}的新活动`}</p>
-            <span>{primary === '推荐' ? '基于兴趣、距离与关系机会' : '报名之前，先看活动，也看看同行的人'}</span>
-          </div>
-          <section className="masonry-grid screen-enter">
-            {primary === '推荐' && secondary.推荐 === '为你' ? (
-              <>
-                <ActivityCard activity={activities[0]} saved={saved.has(activities[0].id)} onSave={onSave} onOpen={onOpenActivity} />
-                <ActivityCard activity={activities[1]} saved={saved.has(activities[1].id)} onSave={onSave} onOpen={onOpenActivity} />
-                <PersonCard person={people[1]} activity={activities[2]} onOpen={onOpenPerson} />
-                <ActivityCard activity={activities[3]} saved={saved.has(activities[3].id)} onSave={onSave} onOpen={onOpenActivity} />
-              </>
-            ) : filtered.length ? filtered.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} saved={saved.has(activity.id)} onSave={onSave} onOpen={onOpenActivity} />
-            )) : (
-              <div className="empty-state"><strong>暂时没有合适的活动</strong><p>换个分类，或者发起一场你真正想去的活动。</p><button onClick={onCreate}>发起活动</button></div>
-            )}
-          </section>
-        </>
-      )}
-
-      <button className="floating-create" onClick={onCreate}><PlusIcon size={20} /><span>发起</span></button>
-      {searching && <SearchPanel onClose={() => setSearching(false)} onOpen={(activity) => { setSearching(false); onOpenActivity(activity); }} />}
+      <button type="button" className="floating-create" onClick={onCreate}>
+        <Plus size={18} /><span>发起</span>
+      </button>
     </div>
   );
 }
-
-export type { PrimaryTab };

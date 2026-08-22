@@ -1,5 +1,5 @@
 {
-  "name": "4u-mobile",
+  "name": "for-u",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test:smoke": "node tests/smoke.mjs",
-    "test:responsive": "node tests/responsive.mjs"
+    "test:responsive": "node tests/responsive.mjs",
+    "test:contracts": "node tests/contracts.mjs"
   },
   "dependencies": {
     "lucide-react": "latest",

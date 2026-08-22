@@ -1,17 +1,236 @@
-import { activities } from '../data';
-import { CalendarIcon, ChevronRightIcon, HeartIcon, SettingsIcon, ShieldIcon } from '../components/Icons';
+import {
+  Bookmark,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  FilePenLine,
+  HeartHandshake,
+  KeyRound,
+  LockKeyhole,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
+import { RelationshipGoal, VerificationStatus, type CurrentUser } from '../domain';
+import { SafeImage } from '../components/SafeImage';
 
-export function ProfilePage({ savedCount, joinedCount, onAction }: { savedCount: number; joinedCount: number; onAction: (message: string) => void }) {
+export type ProfileSection = 'profile' | 'relationship' | 'assets' | 'permissions';
+export type ProfileAssetKey = 'saved' | 'active' | 'applications' | 'drafts';
+export type ProfilePermissionTier = 'PUBLIC' | 'CONNECTIONS' | 'CONFIRMED_ACTIVITY' | 'PRIVATE';
+
+export interface ProfileAssetCounts {
+  readonly saved: number;
+  readonly active: number;
+  readonly applications: number;
+  readonly drafts: number;
+}
+
+export interface ProfilePageProps {
+  readonly section: string;
+  readonly user: CurrentUser;
+  readonly assets?: Partial<ProfileAssetCounts>;
+  readonly onSectionChange: (section: ProfileSection) => void;
+  readonly onEditProfile?: () => void;
+  readonly onEditRelationship?: () => void;
+  readonly onOpenAsset?: (asset: ProfileAssetKey) => void;
+  readonly onOpenPermission?: (tier: ProfilePermissionTier) => void;
+}
+
+const sectionItems: readonly {
+  id: ProfileSection;
+  label: string;
+  description: string;
+  icon: typeof UserRound;
+}[] = [
+  { id: 'profile', label: '个人资料', description: '公开展示与认证状态', icon: UserRound },
+  { id: 'relationship', label: '关系意图', description: '想建立怎样的连接', icon: HeartHandshake },
+  { id: 'assets', label: '我的资产', description: '收藏、活动与草稿', icon: Bookmark },
+  { id: 'permissions', label: '权限分级', description: '谁可以看到什么', icon: KeyRound },
+];
+
+const relationshipLabels: Record<RelationshipGoal, { title: string; description: string }> = {
+  [RelationshipGoal.LONG_TERM]: { title: '寻找长期关系', description: '愿意以稳定、持续了解为方向建立关系。' },
+  [RelationshipGoal.SERIOUS_DATING]: { title: '认真约会', description: '希望从真实见面开始，认真判断彼此是否合适。' },
+  [RelationshipGoal.OPEN_TO_EXPLORE]: { title: '开放探索', description: '不预设唯一结果，但会清楚表达边界与节奏。' },
+};
+
+export function ProfilePage({
+  section,
+  user,
+  assets,
+  onSectionChange,
+  onEditProfile,
+  onEditRelationship,
+  onOpenAsset,
+  onOpenPermission,
+}: ProfilePageProps) {
+  const activeSection = isProfileSection(section) ? section : 'profile';
+  const counts: ProfileAssetCounts = {
+    saved: assets?.saved ?? user.stats.savedActivityCount,
+    active: assets?.active ?? user.stats.activeActivityCount,
+    applications: assets?.applications ?? 0,
+    drafts: assets?.drafts ?? 0,
+  };
+  const profile = user.profile;
+
   return (
-    <div className="page profile-page screen-enter">
-      <div className="profile-cover">
-        <button className="profile-settings" onClick={() => onAction('设置功能将在下一版本开放')}><SettingsIcon size={22} /></button>
-        <div className="profile-identity"><img src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=360&q=85" alt="我的头像" /><div><span>真人已认证</span><h1>林川</h1><p>29 · 上海 · 对认真关系保持开放</p></div></div>
-      </div>
-      <section className="profile-stats"><div><strong>{joinedCount + 6}</strong><span>参加过</span></div><div><strong>3</strong><span>发起过</span></div><div><strong>{savedCount}</strong><span>已收藏</span></div></section>
-      <section className="profile-section"><div className="section-heading"><h2>我的兴趣坐标</h2><button onClick={() => onAction('兴趣编辑功能将在下一版本开放')}>编辑</button></div><div className="interest-cloud"><span>当代艺术</span><span>城市漫步</span><span>独立电影</span><span>轻运动</span><span>黑胶</span></div></section>
-      <section className="profile-section"><div className="section-heading"><h2>即将参加</h2><span>2 场</span></div><button className="mini-event" onClick={() => onAction('活动详情已收纳在首页演示中')}><img src={activities[1].image} alt=""/><div><strong>{activities[1].title}</strong><p><CalendarIcon size={14}/>{activities[1].date} {activities[1].time}</p></div><ChevronRightIcon size={18}/></button></section>
-      <section className="settings-list"><button onClick={() => onAction(`已收藏 ${savedCount} 场活动`)}><HeartIcon size={20}/><span>我的收藏</span><b>{savedCount}</b><ChevronRightIcon size={18}/></button><button onClick={() => onAction('隐私与安全规则已启用')}><ShieldIcon size={20}/><span>隐私与安全</span><ChevronRightIcon size={18}/></button></section>
-    </div>
+    <section className="page profile-page screen-enter" aria-labelledby="profile-name">
+      <header className="profile-cover">
+        <div className="profile-identity">
+          <SafeImage src={profile.photos[0].url} alt={profile.photos[0].alt} ratio="1 / 1" fallbackLabel="头像" />
+          <div>
+            <span>{verificationLabel(profile.verification.personhood)}</span>
+            <h1 id="profile-name">{profile.displayName}</h1>
+            <p>{profile.city} · {profile.occupation} · {relationshipLabels[profile.relationshipGoal].title}</p>
+          </div>
+        </div>
+      </header>
+
+      <nav className="profile-section-nav" aria-label="我的页面分区">
+        {sectionItems.map(({ id, label, description, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={activeSection === id ? 'is-active' : ''}
+            aria-current={activeSection === id ? 'page' : undefined}
+            onClick={() => onSectionChange(id)}
+          >
+            <Icon size={19} />
+            <span><strong>{label}</strong><small>{description}</small></span>
+            <ChevronRight size={17} />
+          </button>
+        ))}
+      </nav>
+
+      <main className="profile-section-content">
+        {activeSection === 'profile' && <ProfileOverview user={user} onEdit={onEditProfile} />}
+        {activeSection === 'relationship' && <RelationshipOverview user={user} onEdit={onEditRelationship} />}
+        {activeSection === 'assets' && <AssetOverview counts={counts} onOpen={onOpenAsset} />}
+        {activeSection === 'permissions' && <PermissionOverview user={user} onOpen={onOpenPermission} />}
+      </main>
+    </section>
   );
+}
+
+function ProfileOverview({ user, onEdit }: { user: CurrentUser; onEdit?: () => void }) {
+  const profile = user.profile;
+  return (
+    <>
+      <section className="profile-section">
+        <div className="section-heading"><h2>公开资料</h2>{onEdit && <button type="button" onClick={onEdit}>编辑</button>}</div>
+        <p className="profile-bio">{profile.bio}</p>
+        <dl className="profile-facts">
+          <div><dt>城市</dt><dd>{profile.city}</dd></div>
+          <div><dt>职业</dt><dd>{profile.occupation}</dd></div>
+          <div><dt>年龄</dt><dd>{user.privacy.showAge ? `${profile.age} 岁` : '未公开'}</dd></div>
+          <div><dt>MBTI</dt><dd>{profile.mbti}</dd></div>
+        </dl>
+      </section>
+      <section className="profile-section">
+        <div className="section-heading"><h2>兴趣坐标</h2><span>{profile.interests.length} 项</span></div>
+        <div className="interest-cloud">{profile.interests.map((interest) => <span key={interest}>{interest}</span>)}</div>
+      </section>
+      <section className="profile-section verification-summary">
+        <div className="section-heading"><h2>资料可信度</h2></div>
+        <StatusLine label="账户验证" complete={profile.verification.account === VerificationStatus.VERIFIED} />
+        <StatusLine label="真人验证" complete={profile.verification.personhood === VerificationStatus.VERIFIED} />
+        <StatusLine label="资料审核" complete={profile.verification.profileReview === VerificationStatus.VERIFIED} />
+      </section>
+    </>
+  );
+}
+
+function RelationshipOverview({ user, onEdit }: { user: CurrentUser; onEdit?: () => void }) {
+  const intent = relationshipLabels[user.profile.relationshipGoal];
+  return (
+    <>
+      <section className="profile-section relationship-card">
+        <div className="section-heading"><h2>当前关系意图</h2>{onEdit && <button type="button" onClick={onEdit}>调整</button>}</div>
+        <HeartHandshake size={28} />
+        <h3>{intent.title}</h3>
+        <p>{intent.description}</p>
+      </section>
+      <section className="profile-section">
+        <div className="section-heading"><h2>使用方式</h2></div>
+        <p className="profile-bio">关系意图用于公开表达你希望建立的连接，也会参与推荐说明。它不是承诺，不替你向任何人表达好感。</p>
+        <StatusLine label="AI 兼容性分析" complete={user.consent.aiCompatibility} />
+        <StatusLine label="公开推荐说明" complete={user.consent.publicExplanation} />
+        <small className="consent-version">授权版本 {user.consent.version} · {new Date(user.consent.updatedAt).toLocaleDateString('zh-CN')} 更新</small>
+      </section>
+    </>
+  );
+}
+
+function AssetOverview({ counts, onOpen }: { counts: ProfileAssetCounts; onOpen?: (asset: ProfileAssetKey) => void }) {
+  const items: readonly { id: ProfileAssetKey; label: string; description: string; count: number; icon: typeof Bookmark }[] = [
+    { id: 'saved', label: '收藏的活动', description: '稍后再决定是否申请', count: counts.saved, icon: Bookmark },
+    { id: 'active', label: '进行中的活动', description: '已确认或正在参与', count: counts.active, icon: UsersRound },
+    { id: 'applications', label: '活动申请', description: '审核、候补与席位状态', count: counts.applications, icon: ClipboardList },
+    { id: 'drafts', label: '活动草稿', description: '仅自己可见，提交后进入审核', count: counts.drafts, icon: FilePenLine },
+  ];
+  return (
+    <section className="settings-list asset-list" aria-label="我的资产">
+      {items.map(({ id, label, description, count, icon: Icon }) => (
+        <button key={id} type="button" onClick={() => onOpen?.(id)} disabled={!onOpen}>
+          <Icon size={20} />
+          <span><strong>{label}</strong><small>{description}</small></span>
+          <b>{count}</b>
+          <ChevronRight size={18} />
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function PermissionOverview({ user, onOpen }: { user: CurrentUser; onOpen?: (tier: ProfilePermissionTier) => void }) {
+  const tiers: readonly {
+    id: ProfilePermissionTier;
+    label: string;
+    audience: string;
+    details: string;
+    icon: typeof Eye;
+  }[] = [
+    { id: 'PUBLIC', label: '公开资料', audience: '所有可见用户', details: `城市、职业、兴趣；年龄${user.privacy.showAge ? '公开' : '隐藏'}，星座${user.privacy.showZodiac ? '公开' : '隐藏'}`, icon: Eye },
+    { id: 'CONNECTIONS', label: '连接后可见', audience: '双向连接与会话成员', details: '会话内容和连接上下文；消息不会向公开资料展示', icon: HeartHandshake },
+    { id: 'CONFIRMED_ACTIVITY', label: '确认参与后可见', audience: '同场确认参与者', details: `${user.privacy.showInConfirmedParticipantLists ? '允许出现在参与者列表' : '不展示在参与者列表'}；集合点仅向确认者开放`, icon: MapPin },
+    { id: 'PRIVATE', label: '仅自己与账户', audience: '仅自己可管理', details: `授权记录、账户验证；锁屏消息预览${user.privacy.lockScreenMessagePreview === 'HIDDEN' ? '已隐藏' : '按系统设置'}`, icon: LockKeyhole },
+  ];
+
+  return (
+    <>
+      <section className="profile-section permission-intro">
+        <ShieldCheck size={24} />
+        <div><h2>按关系与场景逐级开放</h2><p>公开资料、连接会话、活动现场和账户信息使用不同权限，不因推荐或报名自动扩大。</p></div>
+      </section>
+      <section className="permission-tiers">
+        {tiers.map(({ id, label, audience, details, icon: Icon }, index) => (
+          <button key={id} type="button" className="permission-tier" onClick={() => onOpen?.(id)} disabled={!onOpen}>
+            <span className="permission-level">0{index + 1}</span>
+            <Icon size={20} />
+            <span><strong>{label}</strong><small>{audience}</small><p>{details}</p></span>
+            {onOpen ? <ChevronRight size={18} /> : id === 'PUBLIC' ? <Eye size={17} /> : <EyeOff size={17} />}
+          </button>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function StatusLine({ label, complete }: { label: string; complete: boolean }) {
+  return <div className="profile-status-line">{complete ? <CheckCircle2 size={17} /> : <Sparkles size={17} />}<span>{label}</span><strong>{complete ? '已开启' : '未开启'}</strong></div>;
+}
+
+function verificationLabel(status: VerificationStatus) {
+  if (status === VerificationStatus.VERIFIED) return '真人已认证';
+  if (status === VerificationStatus.PENDING) return '真人认证审核中';
+  if (status === VerificationStatus.FAILED) return '真人认证未通过';
+  return '真人尚未认证';
+}
+
+function isProfileSection(value: string): value is ProfileSection {
+  return sectionItems.some((item) => item.id === value);
 }

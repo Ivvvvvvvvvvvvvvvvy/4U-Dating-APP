@@ -1,27 +1,260 @@
-import { useState } from 'react';
-import { activities } from '../data';
+import { Bell, CalendarDays, HeartHandshake, MessageCircle, ShieldCheck, UsersRound } from 'lucide-react';
+import {
+  MessageKind,
+  ThreadKind,
+  type Activity,
+  type Message,
+  type Person,
+  type PersonId,
+  type Thread,
+  type ThreadId,
+  type Topic,
+} from '../domain';
+import type { MessageCategory } from '../router';
+import { EmptyState } from '../components/StatusUI';
+import { SafeImage } from '../components/SafeImage';
+import { TabBar } from '../components/TabBar';
 
-const threads = [
-  { id: 1, activity: activities[1], title: '梧桐区 City Walk', message: '陈一：集合点已经更新到 10 号口', time: '10:24', unread: 3 },
-  { id: 2, activity: activities[0], title: '同行申请', message: '阿岚已查看你的申请，等待确认', time: '昨天', unread: 1 },
-  { id: 3, activity: activities[3], title: '黑胶试听夜', message: '活动已成团，活动房间已开放', time: '周一', unread: 0 },
-];
+export type NotificationTone = 'RELATIONSHIP' | 'ACTIVITY' | 'SAFETY' | 'ACCOUNT';
 
-export function MessagesPage({ onOpen }: { onOpen: (activity: typeof activities[number]) => void }) {
-  const [section, setSection] = useState<'activity' | 'system'>('activity');
+/** Notification is an inbox projection, not a chat message or a Thread. */
+export type InboxNotification = {
+  readonly id: `notification_${string}`;
+  readonly tone: NotificationTone;
+  readonly title: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly unread: boolean;
+  readonly actionLabel?: string;
+};
+
+export type MessageRoomType = 'match' | 'activity' | 'discussion';
+
+export interface MessagesPageProps {
+  readonly category: MessageCategory;
+  readonly threads: readonly Thread[];
+  readonly messages: readonly Message[];
+  readonly people: readonly Person[];
+  readonly activities: readonly Activity[];
+  readonly topics: readonly Topic[];
+  readonly currentUserId: PersonId;
+  readonly notifications?: readonly InboxNotification[];
+  readonly onCategoryChange: (category: MessageCategory) => void;
+  readonly onOpenThread: (roomType: MessageRoomType, threadId: ThreadId) => void;
+  readonly onOpenNotification?: (notification: InboxNotification) => void;
+}
+
+const categoryOptions = [
+  { value: 'matches', label: '匹配' },
+  { value: 'activities', label: '活动' },
+  { value: 'notifications', label: '通知' },
+] as const;
+
+const notificationMeta: Record<NotificationTone, { label: string; icon: typeof Bell }> = {
+  RELATIONSHIP: { label: '关系连接', icon: HeartHandshake },
+  ACTIVITY: { label: '活动进展', icon: CalendarDays },
+  SAFETY: { label: '安全提醒', icon: ShieldCheck },
+  ACCOUNT: { label: '账户通知', icon: Bell },
+};
+
+export function roomTypeForThread(thread: Thread): MessageRoomType {
+  if (thread.kind === ThreadKind.MATCH) return 'match';
+  if (thread.kind === ThreadKind.ACTIVITY) return 'activity';
+  return 'discussion';
+}
+
+export function MessagesPage({
+  category,
+  threads,
+  messages,
+  people,
+  activities,
+  topics,
+  currentUserId,
+  notifications = [],
+  onCategoryChange,
+  onOpenThread,
+  onOpenNotification,
+}: MessagesPageProps) {
+  const visibleThreads = threads
+    .filter((thread) => category === 'activities'
+      ? thread.kind === ThreadKind.ACTIVITY
+      : thread.kind === ThreadKind.MATCH)
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
+  const unreadCount = category === 'notifications'
+    ? notifications.filter((item) => item.unread).length
+    : visibleThreads.reduce((total, thread) => total + thread.unreadCount, 0);
+
   return (
-    <div className="page inner-page screen-enter">
-      <div className="simple-header"><div><small>活动与连接</small><h1>消息</h1></div><span className="unread-pill">4 条未读</span></div>
-      <div className="message-tabs"><button className={section === 'activity' ? 'is-active' : ''} onClick={() => setSection('activity')}>活动消息</button><button className={section === 'system' ? 'is-active' : ''} onClick={() => setSection('system')}>系统通知</button></div>
-      <section className="thread-list">
-        {section === 'activity' ? threads.map((thread) => (
-          <button key={thread.id} className="thread" onClick={() => onOpen(thread.activity)}>
-            <img src={thread.activity.image} alt="" />
-            <div><strong>{thread.title}</strong><p>{thread.message}</p></div>
-            <aside><time>{thread.time}</time>{thread.unread > 0 && <span>{thread.unread}</span>}</aside>
-          </button>
-        )) : <><div className="system-note"><span>资料状态</span><strong>真人认证已通过</strong><p>现在可以发起活动，也可以确认参加活动。</p></div><div className="system-note"><span>本周推荐</span><strong>有 4 场活动符合你的时间</strong><p>其中 2 场支持双人同行。</p></div></>}
-      </section>
+    <section className="page inner-page messages-page screen-enter" aria-labelledby="messages-title">
+      <header className="simple-header">
+        <div><small>活动与真实连接</small><h1 id="messages-title">消息</h1></div>
+        <span className="unread-pill">{unreadCount ? `${unreadCount} 条未读` : '已读完'}</span>
+      </header>
+
+      <TabBar
+        className="message-tabs"
+        label="消息分类"
+        options={categoryOptions}
+        value={category}
+        onChange={onCategoryChange}
+      />
+
+      {category === 'notifications' ? (
+        <NotificationList notifications={notifications} onOpen={onOpenNotification} />
+      ) : visibleThreads.length ? (
+        <div className="thread-list" role="list">
+          {visibleThreads.map((thread) => (
+            <ThreadRow
+              key={thread.id}
+              thread={thread}
+              messages={messages}
+              people={people}
+              activities={activities}
+              topics={topics}
+              currentUserId={currentUserId}
+              onOpen={() => onOpenThread(roomTypeForThread(thread), thread.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title={category === 'matches' ? '还没有新的连接' : '还没有活动会话'}
+          description={category === 'matches'
+            ? '双方都表达意愿，或加入一次限时话题讨论后，会话才会出现在这里。'
+            : '只有确认参与并取得房间权限的活动，才会显示活动会话。'}
+        />
+      )}
+    </section>
+  );
+}
+
+function ThreadRow({
+  thread,
+  messages,
+  people,
+  activities,
+  topics,
+  currentUserId,
+  onOpen,
+}: {
+  thread: Thread;
+  messages: readonly Message[];
+  people: readonly Person[];
+  activities: readonly Activity[];
+  topics: readonly Topic[];
+  currentUserId: PersonId;
+  onOpen: () => void;
+}) {
+  const messageById = new Map(messages.map((message) => [message.id, message]));
+  const lastMessage = [...thread.messageIds].reverse()
+    .map((id) => messageById.get(id))
+    .find((message): message is Message => Boolean(message));
+  const visual = getThreadVisual(thread, people, activities, topics, currentUserId);
+  const subtitle = lastMessage ? messagePreview(lastMessage, people, currentUserId) : visual.fallback;
+
+  return (
+    <button
+      type="button"
+      className="thread"
+      role="listitem"
+      onClick={onOpen}
+      aria-label={`打开${thread.title}，${thread.unreadCount} 条未读`}
+    >
+      <SafeImage src={visual.image} alt="" ratio="1 / 1" fallbackLabel={visual.badge} />
+      <div>
+        <span className="thread-kicker">{visual.badge}</span>
+        <strong>{thread.title}</strong>
+        <p>{subtitle}</p>
+      </div>
+      <aside>
+        <time dateTime={thread.updatedAt}>{relativeTime(thread.updatedAt)}</time>
+        {thread.unreadCount > 0 && <span aria-label={`${thread.unreadCount} 条未读`}>{thread.unreadCount}</span>}
+      </aside>
+    </button>
+  );
+}
+
+function NotificationList({
+  notifications,
+  onOpen,
+}: {
+  notifications: readonly InboxNotification[];
+  onOpen?: (notification: InboxNotification) => void;
+}) {
+  if (!notifications.length) {
+    return <EmptyState title="暂时没有新通知" description="资料审核、活动状态和安全提醒会集中出现在这里。" />;
+  }
+
+  return (
+    <div className="thread-list notification-list" role="list">
+      {[...notifications]
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+        .map((notification) => {
+          const meta = notificationMeta[notification.tone];
+          const Icon = meta.icon;
+          const content = (
+            <>
+              <span className="notification-icon"><Icon size={19} /></span>
+              <div>
+                <span>{meta.label}{notification.unread ? ' · 未读' : ''}</span>
+                <strong>{notification.title}</strong>
+                <p>{notification.body}</p>
+                {notification.actionLabel && <small>{notification.actionLabel} →</small>}
+              </div>
+              <time dateTime={notification.createdAt}>{relativeTime(notification.createdAt)}</time>
+            </>
+          );
+          return onOpen ? (
+            <button key={notification.id} type="button" className="system-note notification-row" role="listitem" onClick={() => onOpen(notification)}>
+              {content}
+            </button>
+          ) : (
+            <article key={notification.id} className="system-note notification-row" role="listitem">{content}</article>
+          );
+        })}
     </div>
   );
+}
+
+function getThreadVisual(
+  thread: Thread,
+  people: readonly Person[],
+  activities: readonly Activity[],
+  topics: readonly Topic[],
+  currentUserId: PersonId,
+) {
+  if (thread.kind === ThreadKind.ACTIVITY) {
+    const activity = activities.find((item) => item.id === thread.activityId);
+    return { image: activity?.cover.url, badge: '活动房间', fallback: '活动房间已经开启' };
+  }
+  if (thread.kind === ThreadKind.TOPIC_DISCUSSION) {
+    const topic = topics.find((item) => item.id === thread.topicId);
+    return { image: topic?.cover.url, badge: '限时讨论', fallback: '从一个具体问题开始聊' };
+  }
+  const counterpartId = thread.participantIds.find((id) => id !== currentUserId);
+  const counterpart = people.find((person) => person.id === counterpartId);
+  return { image: counterpart?.photos[0].url, badge: '双向连接', fallback: '你们可以开始聊天了' };
+}
+
+function messagePreview(message: Message, people: readonly Person[], currentUserId: PersonId) {
+  if (message.kind !== MessageKind.TEXT) return message.text;
+  if (message.senderId === currentUserId) return `你：${message.text}`;
+  const sender = people.find((person) => person.id === message.senderId);
+  return sender ? `${sender.displayName}：${message.text}` : message.text;
+}
+
+function relativeTime(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  const dayDifference = Math.floor((startOfDay(now) - startOfDay(date)) / 86_400_000);
+  if (dayDifference === 1) return '昨天';
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }

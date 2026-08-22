@@ -1,33 +1,168 @@
-import { useState } from 'react';
-import type { Activity } from '../data';
-import { activities } from '../data';
-import { CalendarIcon, MapPinIcon, SearchIcon, SparkIcon } from '../components/Icons';
+import { ContentCard, type CardActions } from '../components/ContentCard';
+import { PageHeader } from '../components/PageHeader';
+import { MasonryFeed } from '../components/MasonryFeed';
+import { EmptyState, EndOfFeed, ErrorState, FeedSkeleton } from '../components/StatusUI';
+import { TabBar, type TabOption } from '../components/TabBar';
+import {
+  FeedCardType,
+  RelationshipGoal,
+  type FeedCard,
+  type Person,
+  type PersonFeedCard,
+} from '../domain';
+import { currentUser, homeFeed, people } from '../mockData';
+import { canonicalPath, type DiscoverSegment } from '../router';
 
-export function DiscoverPage({ onOpen }: { onOpen: (activity: Activity) => void }) {
-  const [mode, setMode] = useState<'同行者' | '活动'>('同行者');
-  const [filters, setFilters] = useState(['本周末', '5km 内', '全部人数']);
-  const toggleMode = (next: '同行者' | '活动') => { setMode(next); setFilters((old) => [old[0], old[1], next === '同行者' ? '全部人数' : '正在招募']); };
-  const options = [['本周末', '下周', '时间不限'], ['5km 内', '10km 内', '全城'], ['全部人数', '双人同行', '多人小组']];
-  const cycleFilter = (index: number) => setFilters((current) => current.map((value, i) => i === index ? options[index][(options[index].indexOf(value) + 1) % options[index].length] : value));
+const segmentTabs = [
+  { value: 'for-you', label: '为你' },
+  { value: 'nearby', label: '附近' },
+  { value: 'new', label: '新加入' },
+  { value: 'serious', label: '认真关系' },
+] as const satisfies readonly TabOption<DiscoverSegment>[];
+
+const personTemplates = (homeFeed as readonly FeedCard[]).filter(
+  (card): card is PersonFeedCard => card.cardType === FeedCardType.PERSON,
+);
+
+const relationshipGoalLabel = (person: Person) => {
+  if (person.relationshipGoal === RelationshipGoal.LONG_TERM) return '长期关系';
+  if (person.relationshipGoal === RelationshipGoal.SERIOUS_DATING) return '认真了解';
+  return '从相处开始探索';
+};
+
+const defaultPersonCards: readonly PersonFeedCard[] = people.flatMap<PersonFeedCard>((person, index) => {
+  const template = personTemplates[index % personTemplates.length];
+  if (!template) return [];
+
+  return [{
+    ...template,
+    cardId: `feed_discover_${person.id.slice('person_'.length)}`,
+    entityId: person.id,
+    entityVersion: person.entityVersion,
+    requestId: 'request_discover_20260822_a1',
+    rankPosition: index + 1,
+    reason: {
+      ...template.reason,
+      headline: person.interests.length > 1
+        ? `你们都关注${person.interests[0]}与${person.interests[1]}`
+        : `你们都关注${person.interests[0]}`,
+      explanation: '推荐只使用双方允许公开展示的资料；是否表达心动由你决定。',
+      evidenceLabels: person.interests.slice(0, 2),
+    },
+    presentation: {
+      ...template.presentation,
+      image: person.photos[0],
+      headline: `${person.displayName}，${person.age}`,
+      supportingText: `${person.occupation} · ${person.city}`,
+      badges: person.interests.slice(0, 2).map((label, badgeIndex) => ({
+        label,
+        tone: badgeIndex === 0 ? 'ACCENT' as const : 'NEUTRAL' as const,
+      })),
+      facts: [{ label: '想认识', value: relationshipGoalLabel(person) }],
+      primaryActionLabel: '表达心动',
+    },
+  }];
+});
+
+function cardsForSegment(
+  cards: readonly PersonFeedCard[],
+  segment: DiscoverSegment,
+  actions: CardActions,
+): PersonFeedCard[] {
+  if (segment === 'for-you' || segment === 'new') return [...cards];
+
+  return cards.filter((card) => {
+    const entity = actions.resolveEntity(card);
+    if (entity?.entityType !== FeedCardType.PERSON) return false;
+    if (segment === 'nearby') return entity.city === currentUser.profile.city;
+    return entity.relationshipGoal === RelationshipGoal.LONG_TERM
+      || entity.relationshipGoal === RelationshipGoal.SERIOUS_DATING;
+  });
+}
+
+export type DiscoverPageProps = {
+  segment: DiscoverSegment;
+  cards?: readonly PersonFeedCard[];
+  cardActions: CardActions;
+  loading?: boolean;
+  error?: boolean | string;
+  empty?: boolean;
+  onRetry: () => void;
+  onNavigate: (path: string) => void;
+};
+
+export function DiscoverPage({
+  segment,
+  cards = defaultPersonCards,
+  cardActions,
+  loading = false,
+  error = false,
+  empty = false,
+  onRetry,
+  onNavigate,
+}: DiscoverPageProps) {
+  const visibleCards = cardsForSegment(cards, segment, cardActions);
+
+  const navigateSegment = (nextSegment: DiscoverSegment) => {
+    onNavigate(canonicalPath({ kind: 'discover', segment: nextSegment }));
+  };
+
+  const clearFilters = () => navigateSegment('for-you');
+  const goHome = () => onNavigate(canonicalPath({
+    kind: 'home',
+    primary: 'recommend',
+    secondary: 'for-you',
+  }));
 
   return (
-    <div className="page inner-page screen-enter">
-      <div className="simple-header"><div><small>主动发现</small><h1>寻觅</h1></div><button><SearchIcon size={22} /></button></div>
-      <div className="segmented"><button className={mode === '同行者' ? 'is-active' : ''} onClick={() => toggleMode('同行者')}>找同行者</button><button className={mode === '活动' ? 'is-active' : ''} onClick={() => toggleMode('活动')}>找活动</button></div>
-      <div className="filter-chips">{filters.map((filter, index) => <button key={`${index}-${filter}`} onClick={() => cycleFilter(index)}>{filter}</button>)}</div>
-      <section className="discover-hero">
-        <span><SparkIcon size={16} />今晚为你找到 6 个机会</span>
-        <h2>{mode === '同行者' ? '先选想做的事，再看谁也刚好想去' : '真实发起、时间合适、现在可申请'}</h2>
-        <p>不做无场景滑卡，每一个人都与一场具体活动相连。</p>
-      </section>
-      <section className="discover-list">
-        {activities.slice(0, 3).map((activity) => (
-          <button key={activity.id} className="discover-row" onClick={() => onOpen(activity)}>
-            <img src={activity.image} alt="" />
-            <div><span>{activity.kind === 'duo' ? '双人同行' : '多人小组'} · {activity.matchLabel}</span><strong>{activity.title}</strong><small><CalendarIcon size={14} />{activity.date} {activity.time}<MapPinIcon size={14} />{activity.distance}</small></div>
-          </button>
-        ))}
-      </section>
+    <div className="page discover-page screen-enter">
+      <PageHeader eyebrow="只发现真实个人" title="寻觅" />
+      <TabBar
+        label="寻觅筛选"
+        options={segmentTabs}
+        value={segment}
+        onChange={navigateSegment}
+        className="filter-tabs"
+      />
+
+      <div className="page-content">
+        <div className="feed-lead">
+          <div>
+            <h1>发现值得认真认识的人</h1>
+            <p>心动独立表达；只有彼此心动，才会开启对话</p>
+          </div>
+          {!loading && !error && !empty && <small>{visibleCards.length} 人</small>}
+        </div>
+
+        <MasonryFeed className="feed-grid discover-grid" label="个人推荐">
+          {loading ? Array.from({ length: 6 }, (_, index) => (
+            <FeedSkeleton key={index} kind="person" />
+          )) : error ? (
+            <ErrorState onRetry={onRetry} />
+          ) : empty || visibleCards.length === 0 ? (
+            <EmptyState
+              title="暂时没有符合条件的人"
+              description="清除当前筛选，或者回首页看看今天的推荐。"
+              actions={<>
+                <button type="button" className="secondary-button" onClick={clearFilters}>清除筛选</button>
+                <button type="button" className="primary-button" onClick={goHome}>去首页</button>
+              </>}
+            />
+          ) : (
+            <>
+              {visibleCards.map((card) => (
+                <ContentCard
+                  key={card.cardId}
+                  card={card}
+                  actions={cardActions}
+                  compactPerson
+                />
+              ))}
+            </>
+          )}
+        </MasonryFeed>
+        {!loading && !error && !empty && visibleCards.length > 0 && <EndOfFeed />}
+      </div>
     </div>
   );
 }
