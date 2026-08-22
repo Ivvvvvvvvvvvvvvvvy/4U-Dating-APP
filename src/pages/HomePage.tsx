@@ -209,7 +209,7 @@ export function HomePage({
   };
 
   return (
-    <div className="page home-page screen-enter">
+    <div className="page home-page screen-enter" data-screen-label="首页内容流">
       <MobileBrandBar onSearch={onSearch} onMessages={onNotifications} />
       <header className="channel-header">
         <TabBar

@@ -1,3 +1,5 @@
+import { randomId } from './randomId';
+
 export type MutationPhase = 'idle' | 'pending' | 'success' | 'unknown_result' | 'version_conflict' | 'error';
 
 export type MutationReceipt<T> = {
@@ -27,7 +29,7 @@ export async function runDemoMutation<T>(options: {
   requiresOnline?: boolean;
   commit: () => T;
 }): Promise<MutationReceipt<T>> {
-  const idempotencyKey = [options.action, options.entityId, crypto.randomUUID()].join(':');
+  const idempotencyKey = [options.action, options.entityId, randomId()].join(':');
   await delay(360);
 
   if (options.requiresOnline && !navigator.onLine) {

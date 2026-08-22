@@ -115,7 +115,7 @@ export function DiscoverPage({
   }));
 
   return (
-    <div className="page discover-page screen-enter">
+    <div className="page discover-page screen-enter" data-screen-label="寻觅">
       <PageHeader eyebrow="只发现真实个人" title="寻觅" />
       <TabBar
         label="寻觅筛选"

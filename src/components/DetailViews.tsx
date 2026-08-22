@@ -27,7 +27,7 @@ export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBa
   const isDuo = activity.format === ActivityFormat.PAIR;
   const remaining = activity.capacity.maximum - activity.capacity.confirmedCount - activity.capacity.heldCount;
   const cta = joined ? '查看申请' : !canJoin ? '当前不可申请' : activity.recruitmentStatus === ActivityRecruitmentStatus.WAITLIST_ONLY || remaining <= 0 ? '加入候补' : isDuo ? '申请同行' : '申请参加';
-  return <article className="detail-page detail-page--activity" aria-labelledby="activity-detail-title">
+  return <article className="detail-page detail-page--activity" aria-labelledby="activity-detail-title" data-screen-label="活动详情">
     <DetailTop label="活动详情" onBack={onBack} trailing={<button className={'icon-button ' + (saved ? 'is-active' : '')} aria-label={saved ? '取消收藏活动' : '收藏活动'} aria-pressed={saved} onClick={onSave}><Bookmark fill={saved ? 'currentColor' : 'none'}/></button>}/>
     <div className="detail-cover"><SafeImage src={activity.cover.url} alt={activity.title} ratio="16 / 10"/><div className="detail-cover__shade"/><div className="detail-cover__copy"><span>{activityCategory(activity)} · {isDuo ? '双人同行' : '多人小组'}</span><h1 id="activity-detail-title" tabIndex={-1}>{activity.title}</h1><p>{activity.summary}</p></div></div>
     <div className="detail-body">
@@ -44,7 +44,7 @@ export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBa
 
 export function PersonDetail({ person, suggestedActivity, hearted, hearting, onBack, onHeart, onOpenActivity }: { person: Person; suggestedActivity: Activity; hearted: boolean; hearting: boolean; onBack: () => void; onHeart: () => void; onOpenActivity: (activity: Activity) => void }) {
   useDetailFocus('person-detail-title');
-  return <article className="detail-page detail-page--person" aria-labelledby="person-detail-title">
+  return <article className="detail-page detail-page--person" aria-labelledby="person-detail-title" data-screen-label="用户详情">
     <DetailTop label="个人详情" onBack={onBack}/>
     <div className="person-detail-cover"><SafeImage src={person.photos[0].url} alt={person.displayName} ratio="4 / 5"/><div className="detail-cover__shade"/><div className="person-detail-copy"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={15}/>}真人认证 · {person.city}</span><h1 id="person-detail-title" tabIndex={-1}>{person.displayName}，{person.age}</h1><p>{relationshipLabel(person)}</p></div></div>
     <div className="detail-body">
@@ -67,7 +67,7 @@ export function TopicDetail({ topic, relatedActivity, followed, onBack, onFollow
   const [sort, setSort] = useState<'relevant'|'latest'>('relevant');
   const [reply, setReply] = useState('');
   const sorted = useMemo(() => sort === 'relevant' ? comments : [...comments].reverse(), [sort]);
-  return <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title">
+  return <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
     <DetailTop label="话题" onBack={onBack} trailing={<button className={'follow-button ' + (followed ? 'is-active' : '')} onClick={onFollow}>{followed ? '已关注' : '关注'}</button>}/>
     <div className="topic-detail-hero"><span># {topic.tags[0]}</span><h1 id="topic-detail-title" tabIndex={-1}>{topic.title}</h1><p>{topic.summary}</p><div><span>小满 · 已认证</span><time>{new Date(topic.lastActivityAt).toLocaleDateString('zh-CN')}</time></div></div>
     <div className="detail-body"><section className="detail-section topic-article"><p>{topic.kind === 'RELATIONSHIP_SCENARIO' ? topic.scenario : topic.prompt}</p><div className="detail-tags">{topic.tags.map((tag) => <span key={tag}>{tag}</span>)}</div></section><section className="detail-section"><h2>从讨论走向真实体验</h2><button className="linked-event" onClick={() => onOpenActivity(relatedActivity)}><SafeImage src={relatedActivity.cover.url} alt="" ratio="1"/><span><small>关联活动 · 参与讨论不等于报名</small><b>{relatedActivity.title}</b><em>{dateLabel(relatedActivity)} · {relatedActivity.publicLocation.district}</em></span></button></section>
@@ -79,7 +79,7 @@ export function TopicDetail({ topic, relatedActivity, followed, onBack, onFollow
 
 export function OpportunityDetail({ activity, onBack, onCreate }: { activity: ActivityOpportunity; onBack: () => void; onCreate: () => void }) {
   useDetailFocus('opportunity-detail-title');
-  return <article className="detail-page opportunity-detail"><DetailTop label="活动灵感" onBack={onBack}/><div className="opportunity-hero"><Sparkles/><span>还没有真实组局</span><h1 id="opportunity-detail-title" tabIndex={-1}>{activity.title}</h1><p>{activity.summary}</p><small>{activity.authorizedInterestCount} 人已授权展示兴趣聚合 · 不显示具体身份</small></div><div className="detail-body"><section className="detail-section"><h2>从一个清楚的计划开始</h2><p>选择时间、公开区域与参与模式，提交审核后才会成为真实活动。平台不会把预测兴趣用户显示为参与者。</p></section></div><footer className="sticky-action sticky-action--single"><button className="primary-button" onClick={onCreate}>发起这个活动</button></footer></article>;
+  return <article className="detail-page opportunity-detail" data-screen-label="活动灵感"><DetailTop label="活动灵感" onBack={onBack}/><div className="opportunity-hero"><Sparkles/><span>还没有真实组局</span><h1 id="opportunity-detail-title" tabIndex={-1}>{activity.title}</h1><p>{activity.summary}</p><small>{activity.authorizedInterestCount} 人已授权展示兴趣聚合 · 不显示具体身份</small></div><div className="detail-body"><section className="detail-section"><h2>从一个清楚的计划开始</h2><p>选择时间、公开区域与参与模式，提交审核后才会成为真实活动。平台不会把预测兴趣用户显示为参与者。</p></section></div><footer className="sticky-action sticky-action--single"><button className="primary-button" onClick={onCreate}>发起这个活动</button></footer></article>;
 }
 
 function relationshipLabel(person: Person) { return person.relationshipGoal === RelationshipGoal.LONG_TERM ? '期待长期关系' : person.relationshipGoal === RelationshipGoal.SERIOUS_DATING ? '认真了解' : '从相处开始探索'; }

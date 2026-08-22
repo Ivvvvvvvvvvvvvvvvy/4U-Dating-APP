@@ -71,7 +71,7 @@ function TopicCard({ card, topic, actions }: { card: FeedCard; topic: Topic; act
       <button type="button" className="card-main-action" aria-label={'查看话题：' + topic.title} onClick={() => actions.onOpen(card)} />
       <div className="topic-pulse" aria-hidden="true"><i/><i/><i/></div>
       <div className="topic-top"><span># {topic.tags[0]}</span>{(card.allowedActions as readonly FeedAction[]).includes(FeedAction.SAVE) && <button type="button" className={'topic-follow ' + (followed ? 'is-active' : '')} aria-pressed={followed} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onFollowTopic(topic); }}>{followed ? '已关注' : '关注'}</button>}</div>
-      <h2>{topic.title}</h2>
+      <h2 className="card-title-action" onClick={() => actions.onOpen(card)}>{topic.title}</h2>
       <p>{topic.summary}</p>
       <footer><span><MessageCircle size={14}/>{topic.replyCount} 条讨论</span><time><Clock3 size={13}/>{relativeTime(topic.lastActivityAt)}</time></footer>
     </article>

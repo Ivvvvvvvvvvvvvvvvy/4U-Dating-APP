@@ -130,7 +130,7 @@ export function CreateActivityPage({
 
   if (submissionState === 'submitted') {
     return (
-      <section className="page create-layout create-success screen-enter" aria-labelledby="create-result-title">
+      <section className="page create-layout create-success screen-enter" aria-labelledby="create-result-title" data-screen-label="活动提交结果">
         <span className="success-mark"><Check size={32} /></span>
         <h1 id="create-result-title">活动已提交审核</h1>
         <p>{submissionMessage ?? '审核通过后才会公开招募；提交不等于立即发布。'}</p>
@@ -140,7 +140,7 @@ export function CreateActivityPage({
   }
 
   return (
-    <section className="page create-layout screen-enter" aria-labelledby="create-title">
+    <section className="page create-layout screen-enter" aria-labelledby="create-title" data-screen-label="发起活动">
       <header className="page-header create-page-header">
         <button type="button" className="icon-button" aria-label={step === 1 ? '取消创建活动' : '返回上一步'} onClick={() => step === 1 ? onCancel() : onStepChange(1)}><ArrowLeft size={21} /></button>
         <div><span>草稿 {shortDraftId(draftId)}</span><h1 id="create-title">发起活动</h1></div>

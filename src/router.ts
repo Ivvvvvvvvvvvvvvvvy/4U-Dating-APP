@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { randomId } from './randomId';
 
 export type HomePrimary = 'recommend' | 'activities' | 'topics';
 export type HomeSecondary =
@@ -131,7 +132,7 @@ export function useBrowserRouter() {
   useEffect(() => {
     window.history.scrollRestoration = 'manual';
     if (!window.history.state?.__key) {
-      window.history.replaceState({ ...(window.history.state ?? {}), __key: crypto.randomUUID() }, '', window.location.href);
+      window.history.replaceState({ ...(window.history.state ?? {}), __key: randomId() }, '', window.location.href);
       setLocation(locationSnapshot());
     }
     const onPopState = () => setLocation(locationSnapshot());
@@ -144,7 +145,7 @@ export function useBrowserRouter() {
   }, []);
 
   const navigate = useCallback((to: string, options?: { replace?: boolean; state?: Record<string, unknown> }) => {
-    const state = { ...(options?.state ?? {}), __key: crypto.randomUUID() };
+    const state = { ...(options?.state ?? {}), __key: randomId() };
     const target = useHashRouting ? import.meta.env.BASE_URL + '#' + to : to;
     if (options?.replace) window.history.replaceState(state, '', target);
     else window.history.pushState(state, '', target);
