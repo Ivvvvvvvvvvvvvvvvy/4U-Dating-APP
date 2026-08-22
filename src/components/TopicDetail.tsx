@@ -203,12 +203,13 @@ type TopicComment = {
   avatar: string;
   body: string;
   time: string;
+  likes: number;
 };
 
 const starterComments: TopicComment[] = [
-  { id: 'comment-boundary', author: '小满', avatar: '满', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前' },
-  { id: 'comment-context', author: '林一', avatar: '林', body: '具体情境也很重要，同一件事在隐瞒和坦诚的前提下，感受会完全不同。', time: '28 分钟前' },
-  { id: 'comment-respect', author: 'Nana', avatar: 'N', body: '尊重彼此的不舒服，比争论谁的标准更正确更重要。', time: '1 小时前' },
+  { id: 'comment-boundary', author: '小满', avatar: '满', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前', likes: 26 },
+  { id: 'comment-context', author: '林一', avatar: '林', body: '具体情境也很重要。同一件事在隐瞒和坦诚的前提下，感受会完全不同。', time: '28 分钟前', likes: 14 },
+  { id: 'comment-respect', author: 'Nana', avatar: 'N', body: '尊重彼此的不舒服，比争论谁的标准更正确更重要。', time: '1 小时前', likes: 9 },
 ];
 
 function TopicComments({ topicId, online, matching, onChat }: { topicId: string; online: boolean; matching: boolean; onChat: () => void }) {
@@ -228,7 +229,7 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
     const body = draft.trim();
     if (!body) return;
     const next = [
-      { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚' },
+      { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚', likes: 0 },
       ...comments,
     ];
     setComments(next);
@@ -240,10 +241,7 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
   return (
     <>
       <section className="detail-section topic-comments" aria-labelledby="topic-comments-title">
-        <div className="section-title">
-          <h2 id="topic-comments-title">评论区</h2>
-          <span>{comments.length} 条</span>
-        </div>
+        <h2 id="topic-comments-title">共 {comments.length} 条评论</h2>
         <div className="comments">
           {comments.map((comment) => (
             <article key={comment.id}>
@@ -251,7 +249,11 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
               <div>
                 <b>{comment.author}</b>
                 <p>{comment.body}</p>
-                <footer><time>{comment.time}</time></footer>
+                <footer>
+                  <time>{comment.time}</time>
+                  <button type="button">回复</button>
+                  <button type="button" className="comment-like" aria-label={`赞同 ${comment.author} 的评论`}>♡ {comment.likes ?? 0}</button>
+                </footer>
               </div>
             </article>
           ))}
