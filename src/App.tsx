@@ -54,11 +54,22 @@ export default function App() {
   const [topicMatch, setTopicMatch] = useState<TopicMatchSession | null>(null);
   const [discussionRuntimes, setDiscussionRuntimes] = useState<Record<string, DiscussionRuntime>>({});
   const { votes: topicVotes, saveVote } = useTopicVotes();
+  const statusStackRef = useRef<HTMLDivElement>(null);
   const scrollPositions = useRef(new Map<string, number>());
   const knownApplicationIds = useMemo<Set<string>>(() => new Set(activityApplications.map((item) => item.activityId)), []);
   const seenHeartEducation = useRef(localStorage.getItem('4u:rfc:heart-education') === 'seen');
   const listRoute = ['home','discover','messages','me'].includes(route.kind);
   useScrollMemory(location.pathname + location.search, listRoute, typeof location.state.restoreScrollY === 'number' ? location.state.restoreScrollY : undefined);
+
+  useEffect(() => {
+    const statusStack = statusStackRef.current;
+    if (!statusStack) return;
+    const syncStatusStackHeight = () => document.documentElement.style.setProperty('--status-stack-height', `${statusStack.getBoundingClientRect().height}px`);
+    syncStatusStackHeight();
+    const observer = new ResizeObserver(syncStatusStackHeight);
+    observer.observe(statusStack);
+    return () => { observer.disconnect(); document.documentElement.style.removeProperty('--status-stack-height'); };
+  }, [online]);
 
   useEffect(() => {
     const canonical = canonicalPath(route);
@@ -223,13 +234,15 @@ export default function App() {
 
   return <>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    {!online && <OfflineBanner/>}
-    <div className="demo-disclosure"><AlertTriangle size={11}/> 前端合同演示 · 不连接真实用户、推荐、消息或审核服务</div>
+    <div ref={statusStackRef} className="global-status-stack">
+      {!online && <OfflineBanner/>}
+      <div className="demo-disclosure"><AlertTriangle size={11}/> 前端合同演示 · 不连接真实用户、推荐、消息或审核服务</div>
+    </div>
     <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
     {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={() => setTopicMatch(null)} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>}
-    {message && <div className="toast" role="status" aria-live="polite">{message}</div>}
+    {message && <div className={'toast ' + (route.kind === 'home' ? 'toast--home' : route.kind === 'chat' ? 'toast--chat' : detail ? 'toast--detail' : '')} role="status" aria-live="polite">{message}</div>}
   </>;
 }
 
