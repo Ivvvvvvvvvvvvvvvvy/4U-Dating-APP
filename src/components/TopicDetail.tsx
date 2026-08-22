@@ -8,7 +8,6 @@ import {
 } from '../domain';
 import { topicOnlineCount } from '../topicMatch';
 import {
-  dimensionLabel,
   isPersonalExpression,
   matchModeCopy,
   topicGenreLabel,
@@ -127,7 +126,7 @@ function RelationshipTopicDetail({
       <header className="detail-top">
         <button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft /></button>
         <span>关系议题</span>
-        <span className="topic-dimension-pill">{dimensionLabel(topic.primaryDimension)}</span>
+        <span />
       </header>
       <div className="topic-detail-hero">
         <span># {topic.tags.find((tag) => !tag.startsWith('AI ')) ?? '关系讨论'}</span>
