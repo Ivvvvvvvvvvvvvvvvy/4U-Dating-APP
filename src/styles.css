@@ -303,6 +303,11 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 
 .detail-rail { position: fixed; z-index: 60; inset: 0; background: var(--night-925); overflow-y: auto; }
 .detail-page { min-height: 100%; padding-bottom: calc(86px + env(safe-area-inset-bottom)); background: var(--night-925); }
+.detail-page--topic { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.detail-page--topic .safety-panel { margin: 8px 0 28px; }
+.detail-page--topic .safety-panel p { margin-bottom: 0; line-height: 1.65; }
+.topic-join-block { display: grid; gap: 12px; }
+.topic-join-block .topic-instant-button { width: 100%; }
 .detail-top { position: sticky; top: 0; z-index: 15; min-height: calc(54px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 10px 0; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; border-bottom: 1px solid var(--line); background: rgba(15,12,24,.88); backdrop-filter: blur(20px); }
 .detail-top > span { text-align: center; font-size: 13px; font-weight: 700; }
 .detail-cover { position: relative; }
@@ -765,6 +770,10 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
 .topic-feed-grid .topic-card h2 { margin-top: 3px; font-size: 18px; line-height: 1.4; }
 .topic-feed-grid .topic-card > p { font-size: 10px; line-height: 1.6; -webkit-line-clamp: 3; }
 .topic-feed-grid .topic-card footer { justify-content: flex-start; padding-top: 22px; font-size: 9px; }
+.topic-feed-grid .topic-pulse { pointer-events: none; opacity: .28; }
+.topic-feed-grid .topic-pulse i:nth-child(1) { top: 10px; right: 12px; }
+.topic-feed-grid .topic-pulse i:nth-child(2) { left: 12px; bottom: 12px; }
+.topic-feed-grid .topic-pulse i:nth-child(3) { display: none; }
 .topic-feed-sentinel { min-height: 84px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
 .topic-top > span { color: var(--pink); }
 .topic-follow, .follow-button { border-color: var(--line-strong); background: rgba(255,255,255,.8); }
@@ -890,7 +899,9 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
 .linked-event small { color: var(--pink); }
 .linked-event b { color: var(--text); }
 .linked-event em { color: var(--muted); }
+.detail-page--topic { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
 .topic-detail-hero { background: radial-gradient(circle at 85% 0,rgba(232,111,145,.16),transparent 42%),linear-gradient(145deg,#fff7f8,#edf5f1); }
+.detail-page--topic:has(.topic-join-block) .topic-detail-hero { background: radial-gradient(circle at 85% 0,rgba(110,144,133,.16),transparent 42%),linear-gradient(145deg,#f4faf7,#edf5f1); }
 .topic-detail-hero > span { color: var(--pink); }
 .topic-detail-hero h1 { font-family: var(--display-font); font-weight: 600; }
 .topic-detail-hero > p { color: var(--muted); }

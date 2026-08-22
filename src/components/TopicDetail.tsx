@@ -248,13 +248,15 @@ function LifestyleTopicDetail({
       <div className="detail-body">
         <section className="detail-section topic-article">
           <h2>{personal ? '最近想做的事' : '开场问题'}</h2>
-          <p>{topic.prompt}</p>
           <aside className="topic-opening"><MessageCircle size={16} /><span>{topic.openingQuestion}</span></aside>
         </section>
-        <section className="detail-section">
+        <section className="detail-section topic-join-block">
+          <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
+            <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
+          </button>
           <p className="topic-vote-hint">不要求先看完整照片墙和详细资料。系统优先匹配正在浏览或已选择同一话题的在线用户。</p>
           <small className={'topic-live-hint ' + (online ? 'is-live' : 'is-offline')}>
-            {online ? <><Radio size={13} /><i aria-hidden="true" />当前 {liveCount} 人在线</> : '离线时无法匹配'}
+            {online ? <><Radio size={13} />当前 {liveCount} 人在线</> : '离线时无法匹配'}
           </small>
         </section>
         <section className="safety-panel">
@@ -265,11 +267,6 @@ function LifestyleTopicDetail({
           </div>
         </section>
       </div>
-      <footer className="sticky-action sticky-action--single">
-        <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
-          <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
-        </button>
-      </footer>
     </article>
   );
 }
