@@ -20,9 +20,18 @@ import { matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
 import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
+import { Modal } from '../components/Modal';
 
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
+export type DiscussionEndReason = 'NO_SPARK' | 'DIFFERENT_VIEWS' | 'CONVERSATION_DIFFICULT' | 'WANT_ANOTHER_MATCH';
+
+const discussionEndReasons: readonly { value: DiscussionEndReason; label: string }[] = [
+  { value: 'NO_SPARK', label: '没有继续聊下去的感觉' },
+  { value: 'DIFFERENT_VIEWS', label: '观点或生活方式不太合适' },
+  { value: 'CONVERSATION_DIFFICULT', label: '聊天过程不够自然' },
+  { value: 'WANT_ANOTHER_MATCH', label: '想换一个人聊聊' },
+];
 
 export interface ChatConnectionState {
   /** Transport currently carrying server events. */
@@ -81,6 +90,8 @@ export function ChatPage({
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [finishSurveyOpen, setFinishSurveyOpen] = useState(false);
+  const [finishReason, setFinishReason] = useState<DiscussionEndReason | ''>('');
   const orderedMessages = useMemo(() => orderMessages(thread, messages), [thread, messages]);
   const ended = Boolean(discussionRoom && [
     DiscussionContinueDecision.FINISH,
@@ -167,7 +178,7 @@ export function ChatPage({
               <button type="button" className="primary-button" disabled={discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE} onClick={discussionRoom.onContinue}>
                 {discussionRoom.runtime.unlocked ? '已双向继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续，等待对方' : '继续认识'}
               </button>
-              <button type="button" className="text-button" onClick={discussionRoom.onFinish}>结束讨论</button>
+              <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(true)}>结束讨论</button>
               <button type="button" className="text-button" onClick={discussionRoom.onLeave}>暂时离开</button>
               <button type="button" className="text-button" onClick={discussionRoom.onReport}>不适 / 举报</button>
             </div>
@@ -200,6 +211,41 @@ export function ChatPage({
           </button>
         </div>
       </footer>
+      {discussionRoom && finishSurveyOpen && (
+        <Modal title="为什么结束这次讨论？" onClose={() => setFinishSurveyOpen(false)}>
+          <p className="finish-survey-intro">只需选择一项。你的反馈不会展示给对方，并会让下一次匹配更精准。</p>
+          <div className="finish-survey-options" role="radiogroup" aria-label="结束讨论的原因">
+            {discussionEndReasons.map((reason) => (
+              <button
+                key={reason.value}
+                type="button"
+                role="radio"
+                aria-checked={finishReason === reason.value}
+                className={finishReason === reason.value ? 'is-selected' : ''}
+                onClick={() => setFinishReason(reason.value)}
+              >
+                <i aria-hidden="true" />{reason.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!finishReason}
+            onClick={() => {
+              if (!finishReason) return;
+              localStorage.setItem(`4u:rfc:discussion-feedback:${thread.id}`, JSON.stringify({
+                topicId: discussionRoom.topic.id,
+                partnerId: discussionRoom.partner?.id,
+                reason: finishReason,
+                createdAt: new Date().toISOString(),
+              }));
+              discussionRoom.onFinish();
+            }}
+          >提交并结束讨论</button>
+          <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(false)}>继续聊聊</button>
+        </Modal>
+      )}
     </section>
   );
 }
