@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, ChevronRight, CircleAlert, MessageCircle, Radio, Send, ShieldCheck, UsersRound } from 'lucide-react';
 import {
   DiscussionContinueDecision,
@@ -21,6 +21,7 @@ import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
 import { Modal } from '../components/Modal';
+import { SafeImage } from '../components/SafeImage';
 
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
@@ -92,6 +93,17 @@ export function ChatPage({
   const [localError, setLocalError] = useState('');
   const [finishSurveyOpen, setFinishSurveyOpen] = useState(false);
   const [finishReason, setFinishReason] = useState<DiscussionEndReason | ''>('');
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+    };
+  }, []);
   const orderedMessages = useMemo(() => orderMessages(thread, messages), [thread, messages]);
   const ended = Boolean(discussionRoom && [
     DiscussionContinueDecision.FINISH,
@@ -149,6 +161,9 @@ export function ChatPage({
       {discussionRoom && <DiscussionContext room={discussionRoom} threadMode={thread.kind === ThreadKind.TOPIC_DISCUSSION ? thread.matchMode : DiscussionMatchMode.SAME_POSITION_SAME_REASON} />}
 
       <main className="message-stream" aria-live="polite">
+        {discussionRoom?.runtime.unlocked && discussionRoom.partner && (
+          <UnlockedProfileCard person={discussionRoom.partner} />
+        )}
         {orderedMessages.length ? orderedMessages.map(({ message, seq }) => (
           <MessageBubble
             key={message.id}
@@ -345,6 +360,23 @@ function DiscussionContext({
         {mine?.position ? ` · 你的立场：${mine.position}` : ''}
         {room.runtime.unlocked ? ' · 双方已同意继续认识' : ' · 完整资料尚未解锁'}
       </p>
+    </section>
+  );
+}
+
+function UnlockedProfileCard({ person }: { person: Person }) {
+  return (
+    <section className="unlocked-profile-card" aria-label={`${person.displayName}的个人卡片`}>
+      <SafeImage src={person.photos[0].url} alt={person.displayName} ratio="4 / 5" fallbackLabel="头像" />
+      <div>
+        <span>双方已同意继续认识 · 资料已解锁</span>
+        <h2>{person.displayName}，{person.age}岁</h2>
+        <p>{person.city} · {person.occupation} · {person.mbti}</p>
+        <blockquote>{person.bio}</blockquote>
+        <div className="unlocked-profile-tags">
+          {person.interests.slice(0, 3).map((interest) => <i key={interest}>{interest}</i>)}
+        </div>
+      </div>
     </section>
   );
 }
