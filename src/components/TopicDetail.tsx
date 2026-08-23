@@ -205,6 +205,19 @@ type TopicComment = {
   body: string;
   time: string;
   likes: number;
+  liked?: boolean;
+  replies?: TopicCommentReply[];
+};
+
+type TopicCommentReply = {
+  id: string;
+  author: string;
+  avatar: string;
+  body: string;
+  time: string;
+  likes: number;
+  liked?: boolean;
+  replyTo?: string;
 };
 
 const starterComments: TopicComment[] = [
@@ -217,6 +230,7 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
   const storageKey = `4u:rfc:topic-comments:${topicId}`;
   const [draft, setDraft] = useState('');
   const [composing, setComposing] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; author: string } | null>(null);
   const [comments, setComments] = useState<TopicComment[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as TopicComment[] | null;
@@ -226,23 +240,72 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
     }
   });
 
+  const updateComments = (updater: (current: TopicComment[]) => TopicComment[]) => {
+    setComments((current) => {
+      const next = updater(current);
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const openComposer = (target: { commentId: string; author: string } | null = null) => {
+    setReplyingTo(target);
+    setDraft('');
+    setComposing(true);
+  };
+
+  const closeComposer = () => {
+    setComposing(false);
+    setReplyingTo(null);
+    setDraft('');
+  };
+
+  const toggleLike = (commentId: string, replyId?: string) => {
+    updateComments((current) => current.map((comment) => {
+      if (comment.id !== commentId) return comment;
+      if (replyId) {
+        return {
+          ...comment,
+          replies: (comment.replies ?? []).map((reply) => reply.id === replyId
+            ? { ...reply, liked: !reply.liked, likes: Math.max(0, (reply.likes ?? 0) + (reply.liked ? -1 : 1)) }
+            : reply),
+        };
+      }
+      return { ...comment, liked: !comment.liked, likes: Math.max(0, (comment.likes ?? 0) + (comment.liked ? -1 : 1)) };
+    }));
+  };
+
   const publish = () => {
     const body = draft.trim();
     if (!body) return;
-    const next = [
-      { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚', likes: 0 },
-      ...comments,
-    ];
-    setComments(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
-    setDraft('');
-    setComposing(false);
+    if (replyingTo) {
+      const reply: TopicCommentReply = {
+        id: `reply-${Date.now()}`,
+        author: '我',
+        avatar: '我',
+        body,
+        time: '刚刚',
+        likes: 0,
+        replyTo: replyingTo.author,
+      };
+      updateComments((current) => current.map((comment) => comment.id === replyingTo.commentId
+        ? { ...comment, replies: [...(comment.replies ?? []), reply] }
+        : comment));
+    } else {
+      updateComments((current) => [
+        { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚', likes: 0 },
+        ...current,
+      ]);
+    }
+    closeComposer();
   };
+
+  const commentCount = comments.reduce((total, comment) => total + 1 + (comment.replies?.length ?? 0), 0);
 
   return (
     <>
       <section className="detail-section topic-comments" aria-labelledby="topic-comments-title">
-        <h2 id="topic-comments-title">共 {comments.length} 条评论</h2>
+        <h2 id="topic-comments-title">共 {commentCount} 条评论</h2>
         <div className="comments">
           {comments.map((comment) => (
             <article key={comment.id}>
@@ -252,9 +315,39 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
                 <p>{comment.body}</p>
                 <footer>
                   <time>{comment.time}</time>
-                  <button type="button">回复</button>
-                  <button type="button" className="comment-like" aria-label={`赞同 ${comment.author} 的评论`}>♡ {comment.likes ?? 0}</button>
+                  <button type="button" onClick={() => openComposer({ commentId: comment.id, author: comment.author })}>回复</button>
+                  <button
+                    type="button"
+                    className={'comment-like' + (comment.liked ? ' is-liked' : '')}
+                    aria-label={`${comment.liked ? '取消赞同' : '赞同'} ${comment.author} 的评论`}
+                    aria-pressed={Boolean(comment.liked)}
+                    onClick={() => toggleLike(comment.id)}
+                  >{comment.liked ? '♥' : '♡'} {comment.likes ?? 0}</button>
                 </footer>
+                {Boolean(comment.replies?.length) && (
+                  <div className="comment-replies">
+                    {comment.replies?.map((reply) => (
+                      <div className="comment-reply" key={reply.id}>
+                        <span aria-hidden="true">{reply.avatar}</span>
+                        <div>
+                          <b>{reply.author}{reply.replyTo ? <em> 回复 @{reply.replyTo}</em> : null}</b>
+                          <p>{reply.body}</p>
+                          <footer>
+                            <time>{reply.time}</time>
+                            <button type="button" onClick={() => openComposer({ commentId: comment.id, author: reply.author })}>回复</button>
+                            <button
+                              type="button"
+                              className={'comment-like' + (reply.liked ? ' is-liked' : '')}
+                              aria-label={`${reply.liked ? '取消赞同' : '赞同'} ${reply.author} 的回复`}
+                              aria-pressed={Boolean(reply.liked)}
+                              onClick={() => toggleLike(comment.id, reply.id)}
+                            >{reply.liked ? '♥' : '♡'} {reply.likes ?? 0}</button>
+                          </footer>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </article>
           ))}
@@ -265,16 +358,16 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
           {composing && (
             <div className="topic-comment-sheet" role="dialog" aria-modal="true" aria-labelledby="topic-comment-sheet-title">
               <header>
-                <b id="topic-comment-sheet-title">发表评论</b>
-                <button type="button" className="text-button" onClick={() => setComposing(false)}>取消</button>
+                <b id="topic-comment-sheet-title">{replyingTo ? `回复 ${replyingTo.author}` : '发表评论'}</b>
+                <button type="button" className="text-button" onClick={closeComposer}>取消</button>
               </header>
               <textarea
                 value={draft}
                 maxLength={200}
                 rows={3}
                 autoFocus
-                aria-label="发表评论"
-                placeholder="友善表达你的观点…"
+                aria-label={replyingTo ? `回复 ${replyingTo.author}` : '发表评论'}
+                placeholder={replyingTo ? `回复 @${replyingTo.author}…` : '友善表达你的观点…'}
                 onChange={(event) => setDraft(event.target.value)}
               />
               <footer>
@@ -284,7 +377,7 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
             </div>
           )}
           <footer className="sticky-action topic-bottom-actions">
-            <button type="button" className="topic-comment-trigger" onClick={() => setComposing(true)}>
+            <button type="button" className="topic-comment-trigger" onClick={() => openComposer()}>
               <PenLine size={17} />说点什么…
             </button>
             <button type="button" className="primary-button topic-online-chat" disabled={!online || matching} onClick={onChat}>

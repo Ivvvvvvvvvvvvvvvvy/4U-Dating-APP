@@ -407,6 +407,13 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .topic-comments .comments article footer { min-height: 28px; }
 .topic-comments .comments article time, .topic-comments .comments article button { font-size: 9px; }
 .topic-comments .comments .comment-like { margin-left: auto; padding-inline: 8px; color: var(--muted); }
+.topic-comments .comments .comment-like.is-liked { color: var(--pink); }
+.comment-replies { display: grid; gap: 10px; margin-top: 9px; padding: 10px 11px; border-radius: 12px; background: var(--surface-soft); }
+.comment-reply { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 8px; }
+.comment-reply + .comment-reply { padding-top: 10px; border-top: 1px solid var(--line); }
+.comment-reply > span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--rose-soft); color: var(--pink); font-size: 9px; }
+.topic-comments .comments .comment-reply b em { margin-left: 4px; color: var(--muted); font-style: normal; font-weight: 400; }
+.topic-comments .comments .comment-reply p { margin: 4px 0 5px; font-size: 12px; }
 .topic-bottom-actions { grid-template-columns: minmax(0,1fr) minmax(126px,.78fr); gap: 8px; }
 .topic-comment-trigger, .topic-online-chat { min-width: 0; min-height: 48px; border-radius: 999px; }
 .topic-comment-trigger { padding: 0 15px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface-soft); color: var(--muted); text-align: left; }
