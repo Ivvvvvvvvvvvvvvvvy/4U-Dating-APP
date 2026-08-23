@@ -234,6 +234,9 @@ export function HomePage({
   const [mixedTopicCards, setMixedTopicCards] = useState<FeedCard[]>(() => generateMixedTopicCards(TOPIC_POOL_SIZE));
   const [loadingMoreTopics, setLoadingMoreTopics] = useState(false);
   const loadingMoreRef = useRef(false);
+  const loadingMoreRecommendationsRef = useRef(false);
+  const previousTouchYRef = useRef<number | null>(null);
+  const userScrollTowardEndRef = useRef(false);
   const topicSentinelRef = useRef<HTMLDivElement>(null);
   const recommendationSentinelRef = useRef<HTMLDivElement>(null);
   const isTopicFeed = primary === 'topics';
@@ -249,6 +252,8 @@ export function HomePage({
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
 
   const loadMoreRecommendations = useCallback(() => {
+    if (loadingMoreRecommendationsRef.current) return;
+    loadingMoreRecommendationsRef.current = true;
     setRecommendationPage((current) => ({
       key: recommendationRouteKey,
       count: Math.min(
@@ -257,6 +262,10 @@ export function HomePage({
       ),
     }));
   }, [recommendationRouteKey, routeCards.length]);
+
+  useEffect(() => {
+    loadingMoreRecommendationsRef.current = false;
+  }, [visibleCards.length]);
 
   const loadMoreTopics = useCallback(() => {
     if (loadingMoreRef.current) return;
@@ -279,13 +288,63 @@ export function HomePage({
   }, [isTopicFeed, loadMoreTopics]);
 
   useEffect(() => {
-    const sentinel = recommendationSentinelRef.current;
-    if (!hasMoreRecommendations || !sentinel) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (window.scrollY > 0 && entries.some((entry) => entry.isIntersecting)) loadMoreRecommendations();
-    }, { rootMargin: '240px 0px' });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
+    if (!hasMoreRecommendations) return;
+    let frame: number | null = null;
+
+    const checkDistanceToEnd = () => {
+      frame = null;
+      const sentinel = recommendationSentinelRef.current;
+      if (!userScrollTowardEndRef.current || !sentinel) return;
+      userScrollTowardEndRef.current = false;
+      if (sentinel.getBoundingClientRect().top <= window.innerHeight + 240) {
+        loadMoreRecommendations();
+      }
+    };
+
+    const scheduleCheck = () => {
+      if (frame === null) frame = window.requestAnimationFrame(checkDistanceToEnd);
+    };
+    const markWheelIntent = (event: WheelEvent) => {
+      if (event.deltaY > 0) {
+        userScrollTowardEndRef.current = true;
+        scheduleCheck();
+      }
+    };
+    const rememberTouch = (event: TouchEvent) => {
+      previousTouchYRef.current = event.touches[0]?.clientY ?? null;
+    };
+    const markTouchIntent = (event: TouchEvent) => {
+      const nextTouchY = event.touches[0]?.clientY;
+      if (nextTouchY === undefined) return;
+      if (previousTouchYRef.current !== null && nextTouchY < previousTouchYRef.current) {
+        userScrollTowardEndRef.current = true;
+        scheduleCheck();
+      }
+      previousTouchYRef.current = nextTouchY;
+    };
+    const clearTouch = () => { previousTouchYRef.current = null; };
+    const markKeyboardIntent = (event: KeyboardEvent) => {
+      if (['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)) {
+        userScrollTowardEndRef.current = true;
+        scheduleCheck();
+      }
+    };
+
+    window.addEventListener('wheel', markWheelIntent, { passive: true });
+    window.addEventListener('touchstart', rememberTouch, { passive: true });
+    window.addEventListener('touchmove', markTouchIntent, { passive: true });
+    window.addEventListener('touchend', clearTouch, { passive: true });
+    window.addEventListener('keydown', markKeyboardIntent);
+    window.addEventListener('scroll', scheduleCheck, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', markWheelIntent);
+      window.removeEventListener('touchstart', rememberTouch);
+      window.removeEventListener('touchmove', markTouchIntent);
+      window.removeEventListener('touchend', clearTouch);
+      window.removeEventListener('keydown', markKeyboardIntent);
+      window.removeEventListener('scroll', scheduleCheck);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
   }, [hasMoreRecommendations, loadMoreRecommendations]);
 
   const navigatePrimary = (nextPrimary: HomePrimary) => {
