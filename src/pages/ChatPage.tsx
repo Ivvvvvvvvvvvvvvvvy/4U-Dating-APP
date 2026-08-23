@@ -16,7 +16,7 @@ import {
   type ThreadId,
   type Topic,
 } from '../domain';
-import { matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
+import { matchModeCopy, voteLabels } from '../topicVote';
 import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
@@ -102,10 +102,6 @@ export function ChatPage({
   const canSend = thread.allowedActions.includes(ThreadAction.SEND_MESSAGE) && !ended;
   const isOffline = connection.phase === 'OFFLINE';
   const trimmedDraft = draft.trim();
-  const nextPrompt = discussionRoom
-    ? structuredPrompts(discussionRoom.topic).find((prompt) => !messages.some((message) => message.kind === MessageKind.STRUCTURED_PROMPT && message.promptStage === prompt.stage))
-    : undefined;
-
   const submit = async () => {
     if (!trimmedDraft || submitting || !canSend || isOffline) return;
     setSubmitting(true);
@@ -126,7 +122,7 @@ export function ChatPage({
   };
 
   return (
-    <section className="page chat-page screen-enter" aria-labelledby="chat-title" data-room-type={roomType} data-screen-label="聊天详情">
+    <section className={'page chat-page screen-enter' + (discussionRoom ? ' chat-page--discussion' : '')} aria-labelledby="chat-title" data-room-type={roomType} data-screen-label="聊天详情">
       <header className="chat-header">
         <button type="button" className="icon-button" aria-label="返回消息列表" onClick={onBack}><ArrowLeft size={21} /></button>
         <div>
@@ -147,7 +143,7 @@ export function ChatPage({
         <span>{thread.kind === ThreadKind.ACTIVITY
           ? '活动房间只对有权限的参与者开放；集合细节仍按活动权限控制。'
           : thread.kind === ThreadKind.TOPIC_DISCUSSION
-            ? '限时 1 对 1 讨论；平台不会代你发送建议内容。不合适可结束、暂时离开或举报。'
+            ? '限时 1 对 1 讨论；平台不会代你发送建议内容。不合适可结束讨论或举报。'
             : '不合适时可以停止会话、拉黑或举报；平台不会代你发送建议内容。'}</span>
       </div>
       {discussionRoom && <DiscussionContext room={discussionRoom} threadMode={thread.kind === ThreadKind.TOPIC_DISCUSSION ? thread.matchMode : DiscussionMatchMode.SAME_POSITION_SAME_REASON} />}
@@ -169,18 +165,12 @@ export function ChatPage({
       <footer className="chat-composer">
         {discussionRoom && !ended && (
           <div className="discussion-tools">
-            {nextPrompt && (
-              <button type="button" className="secondary-button" onClick={() => discussionRoom.onNextPrompt({ promptStage: nextPrompt.stage, text: nextPrompt.text })}>
-                下一阶段提示：{promptStageLabel(nextPrompt.stage)}
-              </button>
-            )}
             <div className="discussion-end-actions">
               <button type="button" className="primary-button" disabled={discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE} onClick={discussionRoom.onContinue}>
-                {discussionRoom.runtime.unlocked ? '已双向继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续，等待对方' : '继续认识'}
+                {discussionRoom.runtime.unlocked ? '已继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续' : '继续认识'}
               </button>
               <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(true)}>结束讨论</button>
-              <button type="button" className="text-button" onClick={discussionRoom.onLeave}>暂时离开</button>
-              <button type="button" className="text-button" onClick={discussionRoom.onReport}>不适 / 举报</button>
+              <button type="button" className="text-button" onClick={discussionRoom.onReport}>举报</button>
             </div>
           </div>
         )}
@@ -193,7 +183,7 @@ export function ChatPage({
             id={`draft-${thread.id}`}
             value={draft}
             maxLength={1000}
-            rows={2}
+            rows={1}
             placeholder={canSend ? '写下你想亲自发送的话…' : '会话已关闭'}
             disabled={!canSend}
             onChange={(event) => setDraft(event.target.value)}
@@ -207,7 +197,7 @@ export function ChatPage({
             disabled={!trimmedDraft || submitting || !canSend || isOffline}
             onClick={submit}
           >
-            <Send size={17} />{submitting ? '发送中…' : '明确发送'}
+            <Send size={17} />{submitting ? '发送中…' : '发送'}
           </button>
         </div>
       </footer>
@@ -357,14 +347,6 @@ function DiscussionContext({
       </p>
     </section>
   );
-}
-
-function promptStageLabel(stage: StructuredPromptMessage['promptStage']) {
-  if (stage === 'OPENING') return '开场';
-  if (stage === 'UNDERSTANDING') return '理解';
-  if (stage === 'CONDITION') return '条件';
-  if (stage === 'REFLECTION') return '迁移';
-  return '收束';
 }
 
 function roomLabel(thread: Thread) {

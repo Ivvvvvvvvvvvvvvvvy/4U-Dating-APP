@@ -436,9 +436,9 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .discussion-context { margin: 0 16px 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
 .discussion-context strong { display: block; font-size: 12px; }
 .discussion-context p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
-.discussion-tools { grid-column: 1 / -1; display: grid; gap: 8px; margin-bottom: 8px; }
-.discussion-end-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.discussion-end-actions .primary-button, .discussion-end-actions .text-button { width: auto; min-height: 40px; padding: 0 12px; }
+.discussion-tools { grid-column: 1 / -1; display: grid; gap: 8px; }
+.discussion-end-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.discussion-end-actions .primary-button, .discussion-end-actions .text-button { width: 100%; min-height: 40px; padding: 0 7px; white-space: nowrap; }
 .topic-article > p { font-size: 13px; color: #d7d0dd; }
 .comments .tab-bar { width: auto; }
 .comments .tab-bar button { min-height: 34px; padding: 0 9px; border: 0; background: transparent; color: var(--subtle); font-size: 9px; }
@@ -518,7 +518,8 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .search-result b { overflow: hidden; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
 .search-result small { color: var(--muted); font-size: 9px; }
 
-.chat-page { height: 100vh; padding-bottom: calc(73px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+.chat-page { height: 100vh; padding-bottom: calc(73px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; overflow: hidden; }
+.chat-page--discussion { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 .chat-header { min-height: calc(58px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 10px 0; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; border-bottom: 1px solid var(--line); }
 .chat-header > div { text-align: center; }
 .chat-header span { color: var(--muted); font-size: 8px; }
@@ -545,7 +546,7 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .message-seq { color: var(--subtle); font-size: 6px; }
 .chat-composer { position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; min-height: calc(67px + env(safe-area-inset-bottom)); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: minmax(0,1fr) 90px; gap: 7px; background: rgba(15,12,24,.97); border-top: 1px solid var(--line); }
 .chat-composer label { min-width: 0; }
-.chat-composer textarea { min-height: 46px; max-height: 90px; resize: none; }
+.chat-composer textarea { height: 46px; min-height: 46px; max-height: 46px; resize: none; }
 .composer-actions { display: flex; align-items: center; gap: 7px; }
 .composer-actions small { display: none; }
 .composer-actions button { width: 90px; height: 46px; border: 0; border-radius: 12px; background: var(--violet); display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10px; }
