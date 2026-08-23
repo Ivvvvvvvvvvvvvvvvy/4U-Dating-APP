@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Flag, MessageCircle, Radio } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Flag, MessageCircle, PenLine, Radio } from 'lucide-react';
 import {
   DiscussionMatchMode,
   TopicKind,
@@ -8,18 +9,10 @@ import {
 } from '../domain';
 import { topicOnlineCount } from '../topicMatch';
 import {
-  dimensionLabel,
   isPersonalExpression,
-  matchModeCopy,
   topicGenreLabel,
 } from '../topicVote';
 import { useDetailFocus } from './detailFocus';
-
-const matchEntries = [
-  DiscussionMatchMode.SAME_POSITION_SAME_REASON,
-  DiscussionMatchMode.SAME_POSITION_DIFFERENT_REASON,
-  DiscussionMatchMode.DIFFERENT_POSITION_SHARED_VALUE,
-] as const;
 
 export function TopicDetail({
   topic,
@@ -85,7 +78,6 @@ function RelationshipTopicDetail({
   const [primaryReasonId, setPrimaryReasonId] = useState(vote?.primaryReasonId ?? '');
   const [secondaryReasonIds, setSecondaryReasonIds] = useState<string[]>([...(vote?.secondaryReasonIds ?? [])]);
   const reasons = topic.reasonOptionsByPosition[positionId] ?? [];
-  const liveCount = topicOnlineCount(topic);
   const currentVote = useMemo<TopicVoteRecord | undefined>(() => {
     if (!positionId) return vote;
     return {
@@ -123,11 +115,11 @@ function RelationshipTopicDetail({
     : 0;
 
   return (
-    <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
+    <article className={'detail-page detail-page--topic' + (step === 'result' ? ' detail-page--topic-actions' : '')} aria-labelledby="topic-detail-title" data-screen-label="话题详情">
       <header className="detail-top">
         <button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft /></button>
         <span>关系议题</span>
-        <span className="topic-dimension-pill">{dimensionLabel(topic.primaryDimension)}</span>
+        <span />
       </header>
       <div className="topic-detail-hero">
         <span># {topic.tags.find((tag) => !tag.startsWith('AI ')) ?? '关系讨论'}</span>
@@ -176,45 +168,226 @@ function RelationshipTopicDetail({
         )}
 
         {step === 'result' && currentVote && (
-          <section className="detail-section topic-result">
-            <div className="section-title"><h2>结果与开聊</h2><button type="button" className="text-button topic-edit-vote" onClick={() => setStep('stage1')}>修改选择</button></div>
-            <p>
-              {Math.round(positionShare * 100)}% 的人选择「{positionLabel}」
-              {reasonLabel ? `，其中 ${Math.round(reasonShare * 100)}% 和你一样，最在意「${reasonLabel}」。` : '。你跳过了原因选择，仍可以按立场开聊。'}
-            </p>
-            <div className="topic-result-bars">
-              {topic.positionOptions.map((option) => (
-                <div key={option.id} className={option.id === currentVote.positionId ? 'is-mine' : ''}>
-                  <span>{option.label}</span>
-                  <i style={{ width: `${Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%` }} />
-                  <b>{Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%</b>
-                </div>
-              ))}
-            </div>
-            <div className="topic-match-entries">
-              <small className={'topic-live-hint ' + (online ? 'is-live' : 'is-offline')}>
-                {online ? <><Radio size={13} /><i aria-hidden="true" />当前 {liveCount} 人在线，按开聊方式匹配</> : '离线时无法匹配'}
-              </small>
-              {matchEntries.map((mode) => {
-                const copy = matchModeCopy(mode, topic, currentVote);
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    className="topic-match-entry"
-                    disabled={!online || matching}
-                    onClick={() => onStartDiscussion(mode, currentVote)}
-                  >
-                    <strong>{copy.action}</strong>
-                    <span>{copy.description}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          <>
+            <section className="detail-section topic-result">
+              <div className="section-title"><h2>投票结果</h2><button type="button" className="text-button topic-edit-vote" onClick={() => setStep('stage1')}>修改选择</button></div>
+              <p>
+                {Math.round(positionShare * 100)}% 的人选择「{positionLabel}」
+                {reasonLabel ? `，其中 ${Math.round(reasonShare * 100)}% 和你一样，最在意「${reasonLabel}」。` : '。你跳过了原因选择，仍可以按立场开聊。'}
+              </p>
+              <div className="topic-result-bars">
+                {topic.positionOptions.map((option) => (
+                  <div key={option.id} className={option.id === currentVote.positionId ? 'is-mine' : ''}>
+                    <span>{option.label}</span>
+                    <i style={{ width: `${Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%` }} />
+                    <b>{Math.round((topic.resultStats.positionShares[option.id] ?? 0) * 100)}%</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <TopicComments
+              topicId={topic.id}
+              online={online}
+              matching={matching}
+              onChat={() => onStartDiscussion(DiscussionMatchMode.SAME_POSITION_SAME_REASON, currentVote)}
+            />
+          </>
         )}
       </div>
     </article>
+  );
+}
+
+type TopicComment = {
+  id: string;
+  author: string;
+  avatar: string;
+  body: string;
+  time: string;
+  likes: number;
+  liked?: boolean;
+  replies?: TopicCommentReply[];
+};
+
+type TopicCommentReply = {
+  id: string;
+  author: string;
+  avatar: string;
+  body: string;
+  time: string;
+  likes: number;
+  liked?: boolean;
+  replyTo?: string;
+};
+
+const starterComments: TopicComment[] = [
+  { id: 'comment-boundary', author: '小满', avatar: '满', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前', likes: 26 },
+  { id: 'comment-context', author: '林一', avatar: '林', body: '具体情境也很重要。同一件事在隐瞒和坦诚的前提下，感受会完全不同。', time: '28 分钟前', likes: 14 },
+  { id: 'comment-respect', author: 'Nana', avatar: 'N', body: '尊重彼此的不舒服，比争论谁的标准更正确更重要。', time: '1 小时前', likes: 9 },
+];
+
+function TopicComments({ topicId, online, matching, onChat }: { topicId: string; online: boolean; matching: boolean; onChat: () => void }) {
+  const storageKey = `4u:rfc:topic-comments:${topicId}`;
+  const [draft, setDraft] = useState('');
+  const [composing, setComposing] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; author: string } | null>(null);
+  const [comments, setComments] = useState<TopicComment[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as TopicComment[] | null;
+      return Array.isArray(saved) ? saved : starterComments;
+    } catch {
+      return starterComments;
+    }
+  });
+
+  const updateComments = (updater: (current: TopicComment[]) => TopicComment[]) => {
+    setComments((current) => {
+      const next = updater(current);
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const openComposer = (target: { commentId: string; author: string } | null = null) => {
+    setReplyingTo(target);
+    setDraft('');
+    setComposing(true);
+  };
+
+  const closeComposer = () => {
+    setComposing(false);
+    setReplyingTo(null);
+    setDraft('');
+  };
+
+  const toggleLike = (commentId: string, replyId?: string) => {
+    updateComments((current) => current.map((comment) => {
+      if (comment.id !== commentId) return comment;
+      if (replyId) {
+        return {
+          ...comment,
+          replies: (comment.replies ?? []).map((reply) => reply.id === replyId
+            ? { ...reply, liked: !reply.liked, likes: Math.max(0, (reply.likes ?? 0) + (reply.liked ? -1 : 1)) }
+            : reply),
+        };
+      }
+      return { ...comment, liked: !comment.liked, likes: Math.max(0, (comment.likes ?? 0) + (comment.liked ? -1 : 1)) };
+    }));
+  };
+
+  const publish = () => {
+    const body = draft.trim();
+    if (!body) return;
+    if (replyingTo) {
+      const reply: TopicCommentReply = {
+        id: `reply-${Date.now()}`,
+        author: '我',
+        avatar: '我',
+        body,
+        time: '刚刚',
+        likes: 0,
+        replyTo: replyingTo.author,
+      };
+      updateComments((current) => current.map((comment) => comment.id === replyingTo.commentId
+        ? { ...comment, replies: [...(comment.replies ?? []), reply] }
+        : comment));
+    } else {
+      updateComments((current) => [
+        { id: `comment-${Date.now()}`, author: '我', avatar: '我', body, time: '刚刚', likes: 0 },
+        ...current,
+      ]);
+    }
+    closeComposer();
+  };
+
+  const commentCount = comments.reduce((total, comment) => total + 1 + (comment.replies?.length ?? 0), 0);
+
+  return (
+    <>
+      <section className="detail-section topic-comments" aria-labelledby="topic-comments-title">
+        <h2 id="topic-comments-title">共 {commentCount} 条评论</h2>
+        <div className="comments">
+          {comments.map((comment) => (
+            <article key={comment.id}>
+              <span aria-hidden="true">{comment.avatar}</span>
+              <div>
+                <b>{comment.author}</b>
+                <p>{comment.body}</p>
+                <footer>
+                  <time>{comment.time}</time>
+                  <button type="button" onClick={() => openComposer({ commentId: comment.id, author: comment.author })}>回复</button>
+                  <button
+                    type="button"
+                    className={'comment-like' + (comment.liked ? ' is-liked' : '')}
+                    aria-label={`${comment.liked ? '取消赞同' : '赞同'} ${comment.author} 的评论`}
+                    aria-pressed={Boolean(comment.liked)}
+                    onClick={() => toggleLike(comment.id)}
+                  >{comment.liked ? '♥' : '♡'} {comment.likes ?? 0}</button>
+                </footer>
+                {Boolean(comment.replies?.length) && (
+                  <div className="comment-replies">
+                    {comment.replies?.map((reply) => (
+                      <div className="comment-reply" key={reply.id}>
+                        <span aria-hidden="true">{reply.avatar}</span>
+                        <div>
+                          <b>{reply.author}{reply.replyTo ? <em> 回复 @{reply.replyTo}</em> : null}</b>
+                          <p>{reply.body}</p>
+                          <footer>
+                            <time>{reply.time}</time>
+                            <button type="button" onClick={() => openComposer({ commentId: comment.id, author: reply.author })}>回复</button>
+                            <button
+                              type="button"
+                              className={'comment-like' + (reply.liked ? ' is-liked' : '')}
+                              aria-label={`${reply.liked ? '取消赞同' : '赞同'} ${reply.author} 的回复`}
+                              aria-pressed={Boolean(reply.liked)}
+                              onClick={() => toggleLike(comment.id, reply.id)}
+                            >{reply.liked ? '♥' : '♡'} {reply.likes ?? 0}</button>
+                          </footer>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+      {typeof document !== 'undefined' && createPortal(
+        <>
+          {composing && (
+            <div className="topic-comment-sheet" role="dialog" aria-modal="true" aria-labelledby="topic-comment-sheet-title">
+              <header>
+                <b id="topic-comment-sheet-title">{replyingTo ? `回复 ${replyingTo.author}` : '发表评论'}</b>
+                <button type="button" className="text-button" onClick={closeComposer}>取消</button>
+              </header>
+              <textarea
+                value={draft}
+                maxLength={200}
+                rows={3}
+                autoFocus
+                aria-label={replyingTo ? `回复 ${replyingTo.author}` : '发表评论'}
+                placeholder={replyingTo ? `回复 @${replyingTo.author}…` : '友善表达你的观点…'}
+                onChange={(event) => setDraft(event.target.value)}
+              />
+              <footer>
+                <small>{draft.length}/200</small>
+                <button type="button" className="primary-button" disabled={!draft.trim()} onClick={publish}>发表</button>
+              </footer>
+            </div>
+          )}
+          <footer className="sticky-action topic-bottom-actions">
+            <button type="button" className="topic-comment-trigger" onClick={() => openComposer()}>
+              <PenLine size={17} />说点什么…
+            </button>
+            <button type="button" className="primary-button topic-online-chat" disabled={!online || matching} onClick={onChat}>
+              <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
+            </button>
+          </footer>
+        </>,
+        document.body,
+      )}
+    </>
   );
 }
 
@@ -234,7 +407,7 @@ function LifestyleTopicDetail({
   const liveCount = topicOnlineCount(topic);
   const personal = isPersonalExpression(topic);
   return (
-    <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
+    <article className="detail-page detail-page--topic detail-page--topic-actions" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
       <header className="detail-top">
         <button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft /></button>
         <span>{topicGenreLabel(topic)}</span>

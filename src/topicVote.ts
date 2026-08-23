@@ -28,13 +28,6 @@ export function topicPrimaryAction(topic: Topic) {
   return topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '加入讨论';
 }
 
-export function ageBand(age: number) {
-  if (age < 25) return '18-24岁';
-  if (age < 30) return '25-29岁';
-  if (age < 35) return '30-34岁';
-  return '35岁以上';
-}
-
 export function dimensionLabel(dimension: RelationshipDimension) {
   const labels: Record<RelationshipDimension, string> = {
     [RelationshipDimension.LOYALTY_AND_BOUNDARIES]: '忠诚与异性边界',
@@ -171,12 +164,22 @@ export function pickPartnerForMode(
   mode: DiscussionMatchMode,
   people: readonly Person[],
   currentUserId: PersonId,
+  topicId?: string,
+  rotation = 0,
 ) {
   const pool = people.filter((person) => person.id !== currentUserId);
-  const index = mode === DiscussionMatchMode.SAME_POSITION_SAME_REASON
+  if (pool.length === 0) return people[0];
+
+  const modeOffset = mode === DiscussionMatchMode.SAME_POSITION_SAME_REASON
     ? 0
     : mode === DiscussionMatchMode.SAME_POSITION_DIFFERENT_REASON
       ? 1
       : 2;
-  return pool[index % pool.length] ?? pool[0];
+  const generatedTopicParts = topicId?.match(/^topic_ai_(hot|life)_(\d+)_(\d+)$/);
+  const topicOffset = generatedTopicParts
+    ? (Number(generatedTopicParts[2]) * 2) + Number(generatedTopicParts[3]) + (generatedTopicParts[1] === 'life' ? 3 : 0)
+    : topicId
+      ? Array.from(topicId).reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 0)
+      : 0;
+  return pool[(topicOffset + modeOffset + rotation) % pool.length] ?? pool[0];
 }
