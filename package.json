@@ -16,7 +16,8 @@
     "test:contracts": "node tests/contracts.mjs",
     "test:activities": "node tests/activity-fixtures.mjs",
     "test:create-activity": "node tests/create-activity.mjs",
-    "test:profiles": "node tests/synthetic-profiles.mjs"
+    "test:profiles": "node tests/synthetic-profiles.mjs",
+    "test:recommendations": "node tests/recommendation-feed.mjs"
   },
   "dependencies": {
     "lucide-react": "latest",

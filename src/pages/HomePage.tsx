@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ContentCard, type CardActions } from '../components/ContentCard';
 import { MobileBrandBar } from '../components/Navigation';
 import { MasonryFeed } from '../components/MasonryFeed';
@@ -13,7 +13,8 @@ import {
   TopicKind,
   type FeedCard,
 } from '../domain';
-import { activityFeed, currentUser, homeFeed, topicFeed } from '../mockData';
+import { activityFeed, currentUser, personFeed, topicFeed } from '../mockData';
+import { createRecommendationFeed, createSeededRandom, RECOMMENDATION_PAGE_SIZE } from '../recommendationFeed';
 import { generateTopicBatch } from '../topicGenerator';
 import {
   canonicalPath,
@@ -48,7 +49,7 @@ const secondaryTabs = {
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
 
 const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
-  recommend: { title: '今天，想遇见什么？', description: '人物、活动机会与真实讨论，按推荐顺序呈现' },
+  recommend: { title: '今天，想遇见什么？', description: '人物、活动与真实讨论，按推荐顺序呈现' },
   activities: { title: '加入一场真实活动', description: '只展示已经发布、可查看详情的活动' },
   topics: { title: '先聊话题，再决定是否认识', description: '关系议题负责表达观点，生活兴趣负责观察真实互动' },
 };
@@ -143,19 +144,39 @@ function cardsForRoute(
   primary: HomePrimary,
   secondary: HomeSecondary,
   actions: CardActions,
+  recommendationCards: readonly FeedCard[],
 ): FeedCard[] {
   if (primary === 'activities') return filterActivities(activityFeed, secondary, actions);
   if (primary === 'topics') return filterTopics(topicFeed, secondary, actions);
-  return filterRecommendation(homeFeed, secondary, actions);
+  return filterRecommendation(recommendationCards, secondary, actions);
 }
 
 function skeletonKinds(primary: HomePrimary): readonly ('activity' | 'person' | 'topic')[] {
   if (primary === 'activities') return ['activity', 'activity', 'activity', 'activity'];
   if (primary === 'topics') return ['topic', 'topic', 'topic', 'topic'];
-  return ['activity', 'person', 'topic', 'activity', 'activity', 'person'];
+  return ['person', 'activity', 'topic', 'person', 'activity', 'topic', 'person', 'activity', 'topic', 'person'];
 }
 
 const TOPIC_POOL_SIZE = 50;
+const RECOMMENDATION_SEED_KEY = '4u:recommendation-seed';
+
+function sessionRecommendationSeed(): number {
+  try {
+    const stored = sessionStorage.getItem(RECOMMENDATION_SEED_KEY);
+    if (stored && /^\d+$/.test(stored)) return Number(stored) >>> 0;
+  } catch {
+    // Restricted browsers can disable storage; random ordering still works.
+  }
+  const seed = globalThis.crypto?.getRandomValues
+    ? globalThis.crypto.getRandomValues(new Uint32Array(1))[0]
+    : Math.floor(Math.random() * 0x100000000);
+  try {
+    sessionStorage.setItem(RECOMMENDATION_SEED_KEY, String(seed));
+  } catch {
+    // Keep the in-memory seed when storage is unavailable.
+  }
+  return seed;
+}
 
 function generateMixedTopicCards(perStream: number): FeedCard[] {
   const hot = generateTopicBatch('hot', perStream).cards;
@@ -197,12 +218,32 @@ export function HomePage({
   onNotifications,
   onCreate,
 }: HomePageProps) {
+  const [recommendationSeed] = useState(sessionRecommendationSeed);
+  const recommendationCards = useMemo(
+    () => createRecommendationFeed(
+      { people: personFeed, activities: activityFeed, topics: topicFeed },
+      createSeededRandom(recommendationSeed),
+    ),
+    [recommendationSeed],
+  );
+  const recommendationRouteKey = `${primary}:${secondary}`;
+  const [recommendationPage, setRecommendationPage] = useState({ key: recommendationRouteKey, count: RECOMMENDATION_PAGE_SIZE });
+  const visibleRecommendationCount = recommendationPage.key === recommendationRouteKey
+    ? recommendationPage.count
+    : RECOMMENDATION_PAGE_SIZE;
   const [mixedTopicCards, setMixedTopicCards] = useState<FeedCard[]>(() => generateMixedTopicCards(TOPIC_POOL_SIZE));
   const [loadingMoreTopics, setLoadingMoreTopics] = useState(false);
   const loadingMoreRef = useRef(false);
   const topicSentinelRef = useRef<HTMLDivElement>(null);
   const isTopicFeed = primary === 'topics';
-  const visibleCards = isTopicFeed ? mixedTopicCards : cardsForRoute(primary, secondary, cardActions);
+  const isRecommendationFeed = primary === 'recommend';
+  const routeCards = cardsForRoute(primary, secondary, cardActions, recommendationCards);
+  const visibleCards = isTopicFeed
+    ? mixedTopicCards
+    : isRecommendationFeed
+      ? routeCards.slice(0, visibleRecommendationCount)
+      : routeCards;
+  const hasMoreRecommendations = isRecommendationFeed && visibleCards.length < routeCards.length;
   const lead = leadByPrimary[primary];
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
 
@@ -229,14 +270,17 @@ export function HomePage({
   const navigatePrimary = (nextPrimary: HomePrimary) => {
     if (nextPrimary === primary) { window.scrollTo({ top: 0, behavior: 'smooth' }); onRetry(); return; }
     const remembered = nextPrimary === 'topics' ? 'hot' : localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
+    const nextSecondary = remembered ?? homeDefaults[nextPrimary];
+    setRecommendationPage({ key: `${nextPrimary}:${nextSecondary}`, count: RECOMMENDATION_PAGE_SIZE });
     onNavigate(canonicalPath({
       kind: 'home',
       primary: nextPrimary,
-      secondary: remembered ?? homeDefaults[nextPrimary],
+      secondary: nextSecondary,
     }));
   };
 
   const navigateSecondary = (nextSecondary: HomeSecondary) => {
+    setRecommendationPage({ key: `${primary}:${nextSecondary}`, count: RECOMMENDATION_PAGE_SIZE });
     onNavigate(canonicalPath({ kind: 'home', primary, secondary: nextSecondary }));
   };
 
@@ -267,7 +311,7 @@ export function HomePage({
       <div className="page-content">
         <div className="feed-lead">
           <div><h1>{lead.title}</h1><p>{lead.description}</p></div>
-          {!loading && !error && !empty && <small>{isTopicFeed ? '持续更新' : `${visibleCards.length} 条`}</small>}
+          {!loading && !error && !empty && <small>{isTopicFeed ? '持续更新' : isRecommendationFeed ? `${visibleCards.length} / ${routeCards.length} 条` : `${visibleCards.length} 条`}</small>}
         </div>
 
         <MasonryFeed className={'feed-grid' + (isTopicFeed ? ' topic-feed-grid' : '')} label="首页内容流">
@@ -294,7 +338,10 @@ export function HomePage({
         </MasonryFeed>
         {!loading && !error && !empty && visibleCards.length > 0 && (isTopicFeed
           ? <div ref={topicSentinelRef} className="topic-feed-sentinel" role="status"><span>{loadingMoreTopics ? '正在加载更多话题…' : '继续下滑，发现更多话题'}</span></div>
-          : <EndOfFeed />)}
+          : hasMoreRecommendations
+            ? <div className="recommendation-feed-more"><button type="button" className="secondary-button" onClick={() => setRecommendationPage({ key: recommendationRouteKey, count: Math.min(visibleRecommendationCount + RECOMMENDATION_PAGE_SIZE, routeCards.length) })}>加载更多推荐</button></div>
+            : <EndOfFeed />)}
+        {isRecommendationFeed && <p className="sr-only" aria-live="polite">已显示 {visibleCards.length} 条推荐，共 {routeCards.length} 条</p>}
       </div>
 
       <button type="button" className="floating-create" onClick={onCreate}>

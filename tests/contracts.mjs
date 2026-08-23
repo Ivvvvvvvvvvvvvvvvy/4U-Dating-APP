@@ -13,7 +13,6 @@ for (const field of ['schemaVersion', 'cardId', 'cardType', 'pathType', 'entityI
 for (const forbidden of ['incomingHeart', 'mutualOnHeart', 'exactMeetingPoint', 'compatibilityScore']) {
   assert.equal(source.includes(forbidden), false, 'public fixtures leak forbidden field ' + forbidden);
 }
-assert.match(source, /feed_home_01_monet[\s\S]*feed_home_02_lan[\s\S]*feed_home_03_first_meeting[\s\S]*feed_home_04_wutong/, 'first four feed order mismatch');
 assert.match(domain, /DRAFT[\s\S]*REVIEWING[\s\S]*PUBLISHED[\s\S]*FROZEN/, 'activity publication states incomplete');
 assert.match(domain, /PENDING_REVIEW[\s\S]*WAITLISTED[\s\S]*SEAT_OFFERED[\s\S]*CONFIRMED/, 'application states incomplete');
 
