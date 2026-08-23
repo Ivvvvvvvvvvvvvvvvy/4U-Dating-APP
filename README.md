@@ -15,6 +15,8 @@ for U 是依据《4U 综合社交发现网站技术设计 RFC v1.0》与 UI 设�
     npm run test:smoke
     npm run test:responsive
 
+服务器静态产物使用 `npm run build:server`，输出到 `dist/client`；GitHub Pages 使用独立的 `npm run build:pages`，输出到 `dist/pages`。两条构建链路都会在干净目录中执行客户端隐私扫描。
+
 浏览器测试依赖本机 Chrome，并假设预览服务运行在 http://127.0.0.1:4173：
 
     npm run preview -- --host 127.0.0.1

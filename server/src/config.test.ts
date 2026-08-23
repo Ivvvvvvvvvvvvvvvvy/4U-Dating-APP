@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   loadApiConfig,
   loadConfig,
+  loadDatabaseConfig,
   loadWorkerConfig,
   maximumModelProcessingMs,
 } from './config.js';
@@ -58,6 +59,15 @@ test('loadConfig never supplies a predictable development credential', () => {
     () => loadConfig({ DATABASE_URL: baseEnvironment.DATABASE_URL }),
     /DEV_AUTH_TOKEN is required/,
   );
+});
+
+test('migration configuration requires only database settings', () => {
+  const database = loadDatabaseConfig({
+    DATABASE_URL: baseEnvironment.DATABASE_URL,
+    NODE_ENV: 'production',
+  });
+  assert.equal(database.connectionString, baseEnvironment.DATABASE_URL);
+  assert.equal(database.ssl, false);
 });
 
 test('loadConfig requires the complete JWT verifier contract', () => {

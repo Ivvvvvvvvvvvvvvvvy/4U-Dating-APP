@@ -92,6 +92,8 @@ type SharedConfig = {
   };
 };
 
+export type DatabaseConfig = SharedConfig['database'];
+
 export type ApiConfig = SharedConfig & {
   host: string;
   port: number;
@@ -153,6 +155,13 @@ function toSharedConfig(parsed: ParsedSharedEnvironment): SharedConfig {
       promptVersion: parsed.AI_PROMPT_VERSION,
     },
   };
+}
+
+/** Loads only database settings for one-shot migrations and maintenance jobs. */
+export function loadDatabaseConfig(
+  environment: NodeJS.ProcessEnv = process.env,
+): DatabaseConfig {
+  return toSharedConfig(sharedEnvironmentSchema.parse(environment)).database;
 }
 
 /**

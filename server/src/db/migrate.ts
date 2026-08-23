@@ -5,7 +5,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadConfig } from '../config.js';
+import { loadDatabaseConfig } from '../config.js';
 import { createDatabase, type Database, type SqlExecutor } from './pool.js';
 
 export interface AppliedMigration {
@@ -69,8 +69,7 @@ export async function migrate(
 }
 
 async function main(): Promise<void> {
-  const config = loadConfig();
-  const database = createDatabase(config.database);
+  const database = createDatabase(loadDatabaseConfig());
   try {
     const result = await migrate(database);
     process.stdout.write(`${JSON.stringify(result)}\n`);

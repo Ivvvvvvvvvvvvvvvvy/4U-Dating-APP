@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build --outDir dist/client && node scripts/check-client-privacy.mjs && bash scripts/package-site.sh",
-    "preview": "vite preview --host 0.0.0.0",
+    "build": "npm run build:server",
+    "build:server": "node scripts/clean-dist.mjs && tsc -b && vite build --outDir dist/client && node scripts/check-client-privacy.mjs dist/client && bash scripts/package-site.sh",
+    "build:pages": "node scripts/clean-dist.mjs && tsc -b && vite build --mode pages --outDir dist/pages && node scripts/check-client-privacy.mjs dist/pages",
+    "preview": "vite preview --host 0.0.0.0 --outDir dist/client",
     "generate:profiles-public": "node scripts/generate-synthetic-public-data.mjs",
     "test:smoke": "node tests/smoke.mjs",
     "test:responsive": "node tests/responsive.mjs",

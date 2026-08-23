@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const outputDirectory = path.resolve(root, process.argv[2] ?? 'dist/client');
 const privateModules = new Set([
   path.join(root, 'src/profileSchema.ts'),
   path.join(root, 'src/syntheticProfiles.ts'),
@@ -39,11 +40,22 @@ const privateKeys = [
   'desiredGenders',
   'acceptedRelationshipGoals',
 ];
-const javascript = fs.readdirSync(path.join(root, 'dist/assets'))
+const assetsDirectory = path.join(outputDirectory, 'assets');
+assert.equal(
+  fs.existsSync(assetsDirectory),
+  true,
+  `Production assets directory does not exist: ${path.relative(root, assetsDirectory)}`,
+);
+const javascript = fs.readdirSync(assetsDirectory)
   .filter((name) => name.endsWith('.js'))
-  .map((name) => fs.readFileSync(path.join(root, 'dist/assets', name), 'utf8'))
+  .map((name) => fs.readFileSync(path.join(assetsDirectory, name), 'utf8'))
   .join('\n');
 const leakedKeys = privateKeys.filter((key) => javascript.includes(key));
 assert.deepEqual(leakedKeys, [], `Production JavaScript contains private profile keys: ${leakedKeys.join(', ')}`);
 
-console.log(JSON.stringify({ ok: true, clientModules: visited.size, privateKeys: 'absent' }));
+console.log(JSON.stringify({
+  ok: true,
+  outputDirectory: path.relative(root, outputDirectory),
+  clientModules: visited.size,
+  privateKeys: 'absent',
+}));
