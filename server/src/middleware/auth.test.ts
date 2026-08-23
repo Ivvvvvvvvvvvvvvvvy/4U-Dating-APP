@@ -12,7 +12,7 @@ import {
   type JWTHeaderParameters,
 } from 'jose';
 
-import { createJwksAuthVerifier } from './auth.js';
+import { createJwksAuthVerifier, createLocalJwksAuthVerifier } from './auth.js';
 import { ApiError } from './errors.js';
 
 const ISSUER = 'https://identity.example.test';
@@ -117,6 +117,26 @@ test('JWKS verifier validates RS256 claims, preserves scope semantics, and cache
     subject: 'person_123',
   });
   assert.equal(remote.calls(), 1);
+});
+
+test('local JWKS verifier validates the same issuer, audience, signature, and scope contract', async () => {
+  const key = await createSigningKey('local-key');
+  const verifier = createLocalJwksAuthVerifier({
+    issuer: ISSUER,
+    audience: AUDIENCE,
+    jwks: { keys: [key.publicJwk] },
+  });
+  const token = await signToken(
+    key.privateKey,
+    validClaims({ scope: 'profile:read relationships:write' }),
+    { alg: 'RS256', kid: 'local-key', typ: 'JWT' },
+  );
+  assert.deepEqual(await verifier.verifyBearerToken(token, REQUEST), {
+    userId: 'person_123',
+    subject: 'person_123',
+    scopes: ['profile:read', 'relationships:write'],
+  });
+  assert.equal(await verifier.verifyBearerToken(`${token}tampered`, REQUEST), null);
 });
 
 test('JWKS verifier rejects invalid headers, claims, and signatures', async () => {

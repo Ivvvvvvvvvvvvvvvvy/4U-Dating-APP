@@ -1,10 +1,14 @@
 import 'dotenv/config';
 
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { buildApp } from './app.js';
 import { loadApiConfig } from './config.js';
 import { closeDatabase, createDatabase, createRepositories } from './db/index.js';
-import { createJwksAuthVerifier, type AuthVerifier } from './middleware/auth.js';
+import {
+  createJwksAuthVerifier, createLocalJwksAuthVerifier, type AuthVerifier,
+} from './middleware/auth.js';
+import type { JSONWebKeySet } from 'jose';
 import { createRecommendationService } from './recommendations/index.js';
 
 export async function startApi(): Promise<{ close(): Promise<void> }> {
@@ -30,13 +34,21 @@ export async function startApi(): Promise<{ close(): Promise<void> }> {
     relationships: repositories.relationships,
     recommendations: recommendationService,
   };
-  const authVerifier: AuthVerifier | undefined = config.authMode === 'jwt'
-    ? createJwksAuthVerifier({
+  let authVerifier: AuthVerifier | undefined;
+  if (config.authMode === 'jwt' && config.jwt.jwksFile) {
+    const jwks = JSON.parse(await readFile(config.jwt.jwksFile, 'utf8')) as JSONWebKeySet;
+    authVerifier = createLocalJwksAuthVerifier({
+      issuer: config.jwt.issuer as string,
+      audience: config.jwt.audience as string,
+      jwks,
+    });
+  } else if (config.authMode === 'jwt') {
+    authVerifier = createJwksAuthVerifier({
         issuer: config.jwt.issuer as string,
         audience: config.jwt.audience as string,
         jwksUrl: config.jwt.jwksUrl as string,
-      })
-    : undefined;
+    });
+  }
 
   try {
     const app = await buildApp({

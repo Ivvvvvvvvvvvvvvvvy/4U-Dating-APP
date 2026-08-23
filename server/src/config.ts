@@ -54,6 +54,7 @@ const apiEnvironmentSchema = sharedEnvironmentSchema.extend({
   JWT_JWKS_URL: z.string().url().refine((url) => url.startsWith('https://'), {
     message: 'JWT_JWKS_URL must use HTTPS',
   }).optional(),
+  JWT_JWKS_FILE: optionalSecret,
 });
 
 const workerEnvironmentSchema = sharedEnvironmentSchema.extend({
@@ -109,6 +110,7 @@ export type ApiConfig = SharedConfig & {
     issuer?: string;
     audience?: string;
     jwksUrl?: string;
+    jwksFile?: string;
   };
 };
 
@@ -189,8 +191,11 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv = process.env): Api
     throw new Error('DEV_AUTH_TOKEN is required when AUTH_MODE=dev');
   }
   if (parsed.AUTH_MODE === 'jwt'
-    && (!parsed.JWT_ISSUER || !parsed.JWT_AUDIENCE || !parsed.JWT_JWKS_URL)) {
-    throw new Error('JWT_ISSUER, JWT_AUDIENCE, and JWT_JWKS_URL are required when AUTH_MODE=jwt');
+    && (!parsed.JWT_ISSUER || !parsed.JWT_AUDIENCE
+      || (!parsed.JWT_JWKS_URL && !parsed.JWT_JWKS_FILE))) {
+    throw new Error(
+      'JWT_ISSUER, JWT_AUDIENCE, and either JWT_JWKS_URL or JWT_JWKS_FILE are required when AUTH_MODE=jwt',
+    );
   }
 
   return {
@@ -209,6 +214,7 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv = process.env): Api
       ...(parsed.JWT_ISSUER ? { issuer: parsed.JWT_ISSUER } : {}),
       ...(parsed.JWT_AUDIENCE ? { audience: parsed.JWT_AUDIENCE } : {}),
       ...(parsed.JWT_JWKS_URL ? { jwksUrl: parsed.JWT_JWKS_URL } : {}),
+      ...(parsed.JWT_JWKS_FILE ? { jwksFile: parsed.JWT_JWKS_FILE } : {}),
     },
   };
 }

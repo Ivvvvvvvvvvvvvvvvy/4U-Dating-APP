@@ -69,6 +69,9 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:?JWT_ISSUER is required}
       JWT_AUDIENCE: ${JWT_AUDIENCE:?JWT_AUDIENCE is required}
       JWT_JWKS_URL: ${JWT_JWKS_URL:?JWT_JWKS_URL is required}
+      JWT_JWKS_FILE: /run/secrets/jwks.json
+    volumes:
+      - ${JWT_JWKS_HOST_FILE:?JWT_JWKS_HOST_FILE is required}:/run/secrets/jwks.json:ro
     depends_on:
       migrate: { condition: service_completed_successfully }
     ports:

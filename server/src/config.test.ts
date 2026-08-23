@@ -73,7 +73,7 @@ test('migration configuration requires only database settings', () => {
 test('loadConfig requires the complete JWT verifier contract', () => {
   assert.throws(
     () => loadConfig({ ...baseEnvironment, AUTH_MODE: 'jwt', JWT_ISSUER: 'https://id.example' }),
-    /JWT_ISSUER, JWT_AUDIENCE, and JWT_JWKS_URL/,
+    /JWT_ISSUER, JWT_AUDIENCE, and either JWT_JWKS_URL or JWT_JWKS_FILE/,
   );
   const config = loadConfig({
     ...baseEnvironment,
@@ -86,6 +86,16 @@ test('loadConfig requires the complete JWT verifier contract', () => {
   assert.equal(config.authMode, 'jwt');
   assert.equal(config.jwt.audience, 'for-u-api');
   assert.equal(config.aiRefinementEnabled, false);
+
+  const fileConfig = loadConfig({
+    ...baseEnvironment,
+    NODE_ENV: 'production',
+    AUTH_MODE: 'jwt',
+    JWT_ISSUER: 'https://id.example',
+    JWT_AUDIENCE: 'for-u-api',
+    JWT_JWKS_FILE: '/run/secrets/jwks.json',
+  });
+  assert.equal(fileConfig.jwt.jwksFile, '/run/secrets/jwks.json');
 });
 
 test('disabled worker does not require or retain provider configuration', () => {

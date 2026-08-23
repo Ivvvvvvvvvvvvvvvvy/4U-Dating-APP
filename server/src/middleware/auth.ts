@@ -2,12 +2,14 @@ import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   createRemoteJWKSet,
+  createLocalJWKSet,
   customFetch,
   decodeProtectedHeader,
   errors as joseErrors,
   jwtVerify,
   type FetchImplementation,
   type JWTPayload,
+  type JSONWebKeySet,
 } from 'jose';
 import { ApiError } from './errors.js';
 
@@ -40,6 +42,13 @@ export interface JwksAuthVerifierOptions {
   readonly cacheTtlMs?: number;
   readonly clockToleranceSeconds?: number;
   readonly fetch?: typeof globalThis.fetch;
+}
+
+export interface LocalJwksAuthVerifierOptions {
+  readonly issuer: string;
+  readonly audience: string;
+  readonly jwks: JSONWebKeySet;
+  readonly clockToleranceSeconds?: number;
 }
 
 const JWKS_FETCH_TIMEOUT_MS = 5_000;
@@ -137,6 +146,39 @@ export function createJwksAuthVerifier(options: JwksAuthVerifierOptions): AuthVe
       } catch (error) {
         if (error instanceof ApiError) throw error;
         if (isRemoteJwksError(error)) throw authenticationUnavailable(error);
+        return null;
+      }
+    },
+  };
+}
+
+/** Fail-closed RS256 verifier for a locally mounted, deployment-managed JWKS. */
+export function createLocalJwksAuthVerifier(options: LocalJwksAuthVerifierOptions): AuthVerifier {
+  const localJwks = createLocalJWKSet(options.jwks);
+  const clockToleranceSeconds = options.clockToleranceSeconds ?? 30;
+  return {
+    kind: 'external',
+    async verifyBearerToken(token) {
+      if (token.length > 16_384) return null;
+      try {
+        const header = decodeProtectedHeader(token);
+        if (header.alg !== 'RS256' || typeof header.kid !== 'string') return null;
+        if (header.typ !== undefined && header.typ !== 'JWT' && header.typ !== 'at+jwt') return null;
+        const { payload } = await jwtVerify(token, localJwks, {
+          algorithms: ['RS256'],
+          issuer: options.issuer,
+          audience: options.audience,
+          clockTolerance: clockToleranceSeconds,
+          requiredClaims: ['sub', 'exp'],
+        });
+        if (typeof payload.sub !== 'string' || !payload.sub) return null;
+        const scopes = parseScopes(payload);
+        return {
+          userId: payload.sub,
+          subject: payload.sub,
+          ...(scopes ? { scopes } : {}),
+        };
+      } catch {
         return null;
       }
     },

@@ -28,6 +28,7 @@ export interface AppConfig {
     readonly issuer?: string;
     readonly audience?: string;
     readonly jwksUrl?: string;
+    readonly jwksFile?: string;
   };
 }
 
@@ -62,7 +63,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     ? createJwksAuthVerifier({ issuer: jwt.issuer, audience: jwt.audience, jwksUrl: jwt.jwksUrl })
     : undefined;
   if (options.config.authMode === 'jwt' && !options.authVerifier && !configuredVerifier) {
-    throw new Error('AUTH_MODE=jwt requires JWT issuer, audience, and JWKS URL configuration.');
+    throw new Error('AUTH_MODE=jwt requires a configured external verifier.');
   }
   const authVerifier = options.authVerifier ?? configuredVerifier ?? createDevBearerAuthVerifier({
       token: options.config.devAuthToken,

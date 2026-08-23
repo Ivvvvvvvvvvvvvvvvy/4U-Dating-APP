@@ -125,6 +125,7 @@ Configuration is validated at startup. Values below are canonical; legacy aliase
 | `JWT_ISSUER` | required for JWT mode | Exact trusted issuer |
 | `JWT_AUDIENCE` | required for JWT mode | Required access-token audience |
 | `JWT_JWKS_URL` | required for JWT mode | HTTPS JWKS endpoint |
+| `JWT_JWKS_FILE` | optional alternative in JWT mode | Read-only deployment-managed JWKS JSON file; when set, avoids a runtime network dependency |
 | `WORKER_ID` | process-specific value | Must be unique per worker replica; Compose uses `for-u-worker-local` |
 | `WORKER_POLL_MS` | `1000` | Database queue poll interval |
 | `WORKER_LEASE_MS` | `60000` | Job lease; when AI is enabled, must exceed the full retry budget plus completion margin |
