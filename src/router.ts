@@ -8,8 +8,10 @@ export type HomeSecondary =
   | 'hot' | 'relationship' | 'lifestyle' | 'expression';
 export type DiscoverSegment = 'for-you' | 'nearby' | 'new' | 'serious';
 export type MessageCategory = 'matches' | 'activities' | 'notifications';
+export type OnboardingStep = 'welcome' | 'account' | 'adult-check' | 'identity' | 'preferences' | 'mbti' | 'interests' | 'photos' | 'expression' | 'ai-review' | 'privacy-preview' | 'status' | 'revise';
 
 export type AppRoute =
+  | { kind: 'entry' }
   | { kind: 'home'; primary: HomePrimary; secondary: HomeSecondary }
   | { kind: 'discover'; segment: DiscoverSegment }
   | { kind: 'messages'; category: MessageCategory }
@@ -19,6 +21,7 @@ export type AppRoute =
   | { kind: 'person'; id: string }
   | { kind: 'topic'; id: string }
   | { kind: 'create'; draftId: string; step: 1 | 2 }
+  | { kind: 'onboarding'; step: OnboardingStep }
   | { kind: 'search'; query: string };
 
 export type BrowserLocation = {
@@ -31,7 +34,7 @@ export type BrowserLocation = {
 const useHashRouting = import.meta.env.PROD && import.meta.env.BASE_URL !== '/';
 
 const readHashLocation = () => {
-  const raw = window.location.hash.slice(1) || '/home?primary=recommend&secondary=for-you';
+  const raw = window.location.hash.slice(1) || '/';
   const url = new URL(raw.startsWith('/') ? raw : '/' + raw, window.location.origin);
   return { pathname: url.pathname, search: url.search };
 };
@@ -68,7 +71,9 @@ export function parseRoute(pathname: string, search = ''): AppRoute {
   const params = new URLSearchParams(search);
   const segments = pathname.split('/').filter(Boolean).map(decodeURIComponent);
 
-  if (!segments.length || segments[0] === 'home') {
+  if (!segments.length) return { kind: 'entry' };
+
+  if (segments[0] === 'home') {
     const rawPrimary = params.get('primary');
     const primary: HomePrimary = isOneOf(rawPrimary, ['recommend', 'activities', 'topics']) ? rawPrimary : 'recommend';
     const rawSecondary = params.get('secondary');
@@ -92,6 +97,10 @@ export function parseRoute(pathname: string, search = ''): AppRoute {
   }
 
   if (segments[0] === 'me') return { kind: 'me', section: segments[1] ?? 'profile' };
+  if (segments[0] === 'onboarding') {
+    const step = isOneOf(segments[1] ?? null, ['welcome', 'account', 'adult-check', 'identity', 'preferences', 'mbti', 'interests', 'photos', 'expression', 'ai-review', 'privacy-preview', 'status', 'revise']) ? segments[1] as OnboardingStep : 'welcome';
+    return { kind: 'onboarding', step };
+  }
   if (segments[0] === 'activities' && segments[1] === 'new') {
     const parsedStep = Number(segments[3]);
     return { kind: 'create', draftId: segments[2] ?? 'local-draft', step: parsedStep === 2 ? 2 : 1 };
@@ -106,6 +115,7 @@ export function parseRoute(pathname: string, search = ''): AppRoute {
 
 export function canonicalPath(route: AppRoute): string {
   switch (route.kind) {
+    case 'entry': return '/';
     case 'home': return '/home?primary=' + route.primary + '&secondary=' + route.secondary;
     case 'discover': return '/discover?segment=' + route.segment;
     case 'messages': return '/messages?category=' + route.category;
@@ -115,6 +125,7 @@ export function canonicalPath(route: AppRoute): string {
     case 'person': return '/people/' + encodeURIComponent(route.id);
     case 'topic': return '/topics/' + encodeURIComponent(route.id);
     case 'create': return '/activities/new/' + encodeURIComponent(route.draftId) + '/' + route.step;
+    case 'onboarding': return '/onboarding/' + route.step;
     case 'search': return '/search' + (route.query ? '?q=' + encodeURIComponent(route.query) : '');
   }
 }
