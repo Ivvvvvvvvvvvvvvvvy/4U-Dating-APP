@@ -159,7 +159,7 @@ function RelationshipOverview({ user, onEdit }: { user: CurrentUser; onEdit?: ()
         <p className="profile-bio">关系意图用于公开表达你希望建立的连接，也会参与推荐说明。它不是承诺，不替你向任何人表达好感。</p>
         <StatusLine label="AI 兼容性分析" complete={user.consent.aiCompatibility} />
         <StatusLine label="公开推荐说明" complete={user.consent.publicExplanation} />
-        <small className="consent-version">授权版本 {user.consent.version} · {new Date(user.consent.updatedAt).toLocaleDateString('zh-CN')} 更新</small>
+        <small className="consent-version">授权条款 · {new Date(user.consent.updatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })}更新</small>
       </section>
     </>
   );

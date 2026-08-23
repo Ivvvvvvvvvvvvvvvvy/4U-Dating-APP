@@ -49,7 +49,7 @@ function PersonCard({ card, person, actions, compact = false }: { card: FeedCard
       <button type="button" className="card-main-action" aria-label={'查看个人：' + person.displayName} onClick={() => actions.onOpen(card)} />
       <div className="card-media person-media">
         <SafeImage src={person.photos[0].url} ratio="4 / 5" alt={person.displayName} loading="lazy" fallbackLabel="个人照片" />
-        <div className="person-overlay"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={14}/>}虚构资料</span><h2>{person.displayName}<small>{person.age}</small></h2><p>{person.city} · {relationshipLabel(person)}</p></div>
+        <div className="person-overlay"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={14}/>}资料完整</span><h2>{person.displayName}<small>{person.age}</small></h2><p>{person.city} · {relationshipLabel(person)}</p></div>
         {(card.allowedActions as readonly FeedAction[]).includes(FeedAction.HEART_PERSON) && <button type="button" className={'quick-action heart-action ' + (hearted ? 'is-active' : '')} aria-label={hearted ? '取消心动' : '心动'} aria-pressed={hearted} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onHeartPerson(person); }}><Heart size={19} fill={hearted ? 'currentColor' : 'none'}/></button>}
         <div className="resonance resonance--person" aria-hidden="true"><i/><i/></div>
       </div>

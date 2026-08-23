@@ -24,7 +24,7 @@ export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBa
       <section className="detail-section"><h2>成行与候补</h2><p>申请本身不占座；收到席位并确认后才计入人数。满员后按候补顺序处理。</p><div className="detail-tags">{activity.atmosphereTags.map((tag) => <span key={tag}>{tag}</span>)}</div></section>
       <section className="safety-panel"><ShieldCheck/><div><h2>安全与边界</h2><p>{activity.safetyNotice}</p><button type="button"><Flag size={14}/>举报活动</button></div></section>
     </div>
-    <footer className="sticky-action"><div><strong>{activity.price?.display ?? '免费'}</strong><span>预计人均</span></div><button className="primary-button" disabled={joining || (!canJoin && !joined)} onClick={onJoin}>{joining ? '正在回源校验…' : cta}</button></footer>
+    <footer className="sticky-action"><div><strong>{activity.price?.display ?? '免费'}</strong><span>预计人均</span></div><button className="primary-button" disabled={joining || (!canJoin && !joined)} onClick={onJoin}>{joining ? '正在确认最新状态…' : cta}</button></footer>
   </article>;
 }
 
@@ -32,7 +32,7 @@ export function PersonDetail({ person, suggestedActivity, hearted, hearting, onB
   useDetailFocus('person-detail-title');
   return <article className="detail-page detail-page--person" aria-labelledby="person-detail-title" data-screen-label="用户详情">
     <DetailTop label="个人详情" onBack={onBack}/>
-    <div className="person-detail-cover"><SafeImage src={person.photos[0].url} alt={person.displayName} ratio="4 / 5"/><div className="detail-cover__shade"/><div className="person-detail-copy"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={15}/>}资料结构已校验 · {person.city}</span><h1 id="person-detail-title" tabIndex={-1}>{person.displayName}，{person.age}</h1><p>{relationshipLabel(person)}</p></div></div>
+    <div className="person-detail-cover"><SafeImage src={person.photos[0].url} alt={person.displayName} ratio="4 / 5"/><div className="detail-cover__shade"/><div className="person-detail-copy"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={15}/>}资料已审核 · {person.city}</span><h1 id="person-detail-title" tabIndex={-1}>{person.displayName}，{person.age}</h1><p>{relationshipLabel(person)}</p></div></div>
     <div className="detail-body">
       <section className="insight-panel insight-panel--rose"><span><Sparkles size={16}/>为什么推荐</span><h2>有清楚、可验证的共同点</h2><p>你们都公开表达了对 {person.interests.slice(0,2).join('、')} 的兴趣，也偏好从共同体验开始认识彼此。</p><small>只使用双方授权的兴趣与生活方式生成；单向选择始终保密。</small></section>
       <section className="detail-section"><h2>关于 {person.displayName}</h2><p>{person.bio}</p><div className="detail-tags">{person.interests.map((tag) => <span key={tag}>{tag}</span>)}</div></section>

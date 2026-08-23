@@ -14,6 +14,7 @@
     "test:responsive": "node tests/responsive.mjs",
     "test:mobile-overlap": "node tests/mobile-overlap.mjs",
     "test:contracts": "node tests/contracts.mjs",
+    "test:activities": "node tests/activity-fixtures.mjs",
     "test:create-activity": "node tests/create-activity.mjs",
     "test:profiles": "node tests/synthetic-profiles.mjs"
   },

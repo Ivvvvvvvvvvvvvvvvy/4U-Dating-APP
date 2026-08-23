@@ -51,6 +51,18 @@ const ZODIAC_VALUES = [
   'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES',
 ];
 const SELF_GENDERS = ['WOMAN', 'MAN', 'NON_BINARY', 'SELF_DESCRIBED'];
+const REQUESTED_ANIME_WORKS = [
+  '《哪吒之魔童闹海》',
+  '《落凡尘》',
+  '《白蛇：浮生》',
+  '《鬼灭之刃 无限城篇》',
+  '《排球少年！！垃圾场决战》',
+  '《电锯人 蕾洁篇》',
+  '《名侦探柯南》系列剧场版',
+  '《头脑特工队2》',
+  '《荒野机器人》',
+  '《疯狂动物城2》',
+];
 const RELATIONSHIP_GOALS = [
   'LONG_TERM', 'SERIOUS_AND_NATURAL', 'CASUAL_DATING', 'FRIENDS_FIRST', 'UNSURE',
 ];
@@ -213,8 +225,11 @@ records.forEach((record, index) => {
   );
   record.person.photos.forEach((photo) => {
     assert.ok(photo.id.startsWith('media_'), label + ' has invalid media ID');
-    assert.ok(photo.url.startsWith('data:image/svg+xml'), label + ' photo is not a generated SVG');
-    assert.ok(decodeURIComponent(photo.url).includes('FICTIONAL PROFILE'), label + ' photo is not marked fictional');
+    assert.ok(photo.url.startsWith('https://'), label + ' photo is not HTTPS character artwork');
+    assert.ok(
+      REQUESTED_ANIME_WORKS.some((work) => photo.alt.includes(work)),
+      label + ' photo does not identify one of the requested animated works',
+    );
     assert.ok(nonBlank(photo.alt), label + ' photo alt text missing');
     assert.ok(photo.width > 0 && photo.height > 0, label + ' photo dimensions invalid');
     allMediaIds.push(photo.id);
@@ -300,6 +315,18 @@ records.forEach((record, index) => {
     assert.equal(unique(values).size, values.length, label + '.' + field + ' repeats values');
     values.forEach((value) => assert.ok(allowed.includes(value), label + '.' + field + ' has invalid value'));
   }
+});
+
+assert.deepEqual(
+  sorted(new Set(records.flatMap((record) =>
+    REQUESTED_ANIME_WORKS.filter((work) => record.person.photos[0].alt.includes(work)),
+  ))),
+  sorted(REQUESTED_ANIME_WORKS),
+  'generated profiles must cover all requested animated works',
+);
+records.forEach((record) => {
+  const urls = new Set(record.person.photos.map((photo) => photo.url));
+  assert.equal(urls.size, 1, record.person.id + ' photos must stay on one character');
 });
 assert.equal(unique(allMediaIds).size, allMediaIds.length, 'media asset IDs must be globally unique');
 

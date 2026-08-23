@@ -19,6 +19,7 @@ await page.getByRole('button', { name: '返回' }).click();
 await page.getByRole('tab', { name: '活动', exact: true }).click();
 assert(page.url().includes('primary=activities'), 'activity channel should write URL');
 assert(await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.every((node) => node.dataset.cardType === 'ACTIVITY')), 'activity channel leaked another card type');
+assert(await page.locator('[data-card-type="ACTIVITY"]').count() === 20, 'activity channel should render 20 real activities');
 await page.getByRole('tab', { name: '话题', exact: true }).click();
 assert(await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.every((node) => node.dataset.cardType === 'TOPIC')), 'topic channel leaked another card type');
 
@@ -51,14 +52,16 @@ await page.getByRole('tab', { name: '通知' }).click();
 assert(await page.getByText('请在 12 小时内确认席位').isVisible(), 'actionable notification missing');
 await page.getByRole('tab', { name: '匹配' }).click();
 await page.getByRole('button', { name: /打开阿岚/ }).click();
-assert(await page.getByText('WebSocket').isVisible(), 'transport status missing');
+assert(await page.getByText('连接正常').isVisible(), 'connection status missing');
 await page.getByLabel('消息草稿').fill('你好，很高兴认识你');
-await page.getByRole('button', { name: '明确发送' }).click();
+await page.getByRole('button', { name: '发送', exact: true }).click();
 await page.waitForTimeout(450);
 assert(await page.getByText('你好，很高兴认识你').isVisible(), 'explicitly sent message missing');
 
 await page.goto(`${baseUrl}/activities/activity_vinyl_night`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('button', { name: '当前不可申请' }).isDisabled(), 'closed activity must not accept applications');
+await page.goto(`${baseUrl}/activities/activity_badminton_rotation`, { waitUntil: 'networkidle' });
+assert(await page.getByRole('heading', { name: '羽毛球搭子轮转局：每 15 分钟换搭档' }).isVisible(), 'expanded activity detail missing');
 await page.goto(`${baseUrl}/activities/activity_wutong_city_walk`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('button', { name: '查看申请' }).isVisible(), 'existing application must not be submitted twice');
 await page.goto(`${baseUrl}/activities/activity_monet_night`, { waitUntil: 'networkidle' });

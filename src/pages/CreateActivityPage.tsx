@@ -46,7 +46,6 @@ const participationOptions = [
 ] as const;
 
 export function CreateActivityPage({
-  draftId,
   step,
   draft,
   submissionState = 'idle',
@@ -146,7 +145,7 @@ export function CreateActivityPage({
     <section className="page create-layout screen-enter" aria-labelledby="create-title" data-screen-label="发起活动">
       <header className="page-header create-page-header">
         <button type="button" className="icon-button" aria-label={step === 1 ? '取消创建活动' : '返回上一步'} onClick={() => step === 1 ? onCancel() : onStepChange(1)}><ArrowLeft size={21} /></button>
-        <div><span>草稿 {shortDraftId(draftId)}</span><h1 id="create-title">发起活动</h1></div>
+        <div><span>活动草稿</span><h1 id="create-title">发起活动</h1></div>
         <strong>{step} / 2</strong>
       </header>
       <div className="create-progress" aria-label={`创建进度，第 ${step} 步，共 2 步`}><i style={{ width: `${step * 50}%` }} /></div>
@@ -268,8 +267,4 @@ function focusInput(inputId: string) {
     input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     input?.focus({ preventScroll: true });
   });
-}
-
-function shortDraftId(draftId: string) {
-  return draftId.length > 14 ? `${draftId.slice(0, 6)}…${draftId.slice(-4)}` : draftId;
 }

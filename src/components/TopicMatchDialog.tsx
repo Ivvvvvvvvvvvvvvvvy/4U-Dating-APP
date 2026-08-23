@@ -54,7 +54,7 @@ export function TopicMatchDialog({
           <p>{copy.title}。完整照片墙和详细资料默认不展示，只有双方继续认识后才会解锁。</p>
           <div className="privacy-callout">
             <ShieldCheck size={18} />
-            <span>前端合同演示：匹配只发生在当前浏览器。平台不会代你发送建议内容。</span>
+            <span>匹配成功后由你决定何时进入会话，平台不会代你发送建议内容。</span>
           </div>
           <button className="primary-button" type="button" onClick={onEnter}>
             <MessageCircle size={17} />进入限时讨论房

@@ -72,6 +72,10 @@ import type {
   SyntheticCoverageReport,
   SyntheticUserRecord,
 } from './profileSchema';
+import {
+  selectAnimeCharacterPortrait,
+  toAnimeCharacterMedia,
+} from './animeCharacterPortraits';
 
 export const SYNTHETIC_PROFILE_SEED = '4u-fictional-adults-v1-20260822';
 export const SYNTHETIC_PROFILE_AS_OF = '2026-08-22' as const satisfies ISODate;
@@ -159,15 +163,6 @@ const LIFESTYLE_ANSWER_COUNTS = [3, 4, 5] as const;
 const AGE_VALUES = Array.from({ length: 41 }, (_, index) => index + 18);
 const INTEREST_STEPS = [5, 7, 11, 13, 17, 19] as const;
 
-const SVG_PALETTES = [
-  ['#282C5B', '#6C63FF', '#B8B5FF'],
-  ['#123B3A', '#20A486', '#A7F3D0'],
-  ['#4A2849', '#C45AA0', '#F7C4E4'],
-  ['#45351B', '#E49B36', '#FFE0A3'],
-  ['#183C5A', '#3A92D0', '#B8E4FF'],
-  ['#3B2B63', '#8B6DD7', '#DACBFF'],
-] as const;
-
 const RELATIONSHIP_EVIDENCE_COPY = {
   [RelationshipDimension.LOYALTY_AND_BOUNDARIES]: '重视提前说清边界，也尊重彼此已有的社交关系。',
   [RelationshipDimension.PRIVACY_AND_AUTONOMY]: '愿意分享日常，同时保留各自独立安排的空间。',
@@ -227,7 +222,7 @@ const profileIdentity = (index: number): { readonly id: PersonId; readonly displ
   const serial = String(index + 1).padStart(3, '0');
   return {
     id: `person_synth_${serial}`,
-    displayName: `${NAME_STEMS[fieldHash(SYNTHETIC_PROFILE_SEED, index, 'name') % NAME_STEMS.length]}·${serial}`,
+    displayName: NAME_STEMS[fieldHash(SYNTHETIC_PROFILE_SEED, index, 'name') % NAME_STEMS.length],
   };
 };
 
@@ -241,29 +236,18 @@ const chooseInterests = (seed: string, index: number, count: number): [string, .
   return selected as [string, ...string[]];
 };
 
-const escapeXml = (value: string): string => value
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('\"', '&quot;')
-  .replaceAll("'", '&apos;');
-
-const abstractSvgUrl = (index: number, ordinal: number, displayName: string): string => {
-  const palette = SVG_PALETTES[(index * 5 + ordinal * 3) % SVG_PALETTES.length];
-  const rotation = (fieldHash(SYNTHETIC_PROFILE_SEED, index, `svg-${ordinal}`) % 50) - 25;
-  const glyph = escapeXml(displayName.slice(0, 2));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1125" viewBox="0 0 900 1125" role="img" aria-label="synthetic abstract profile illustration"><rect width="900" height="1125" fill="${palette[0]}"/><circle cx="${230 + ordinal * 47}" cy="${280 + (index % 5) * 28}" r="210" fill="${palette[1]}" opacity=".82"/><rect x="310" y="390" width="430" height="430" rx="110" fill="${palette[2]}" opacity=".7" transform="rotate(${rotation} 525 605)"/><path d="M80 930 Q330 700 520 930 T900 850 V1125 H0 Z" fill="${palette[1]}" opacity=".55"/><text x="450" y="610" text-anchor="middle" font-family="system-ui,sans-serif" font-size="118" font-weight="700" fill="white" opacity=".92">${glyph}</text><text x="450" y="1035" text-anchor="middle" font-family="system-ui,sans-serif" font-size="32" letter-spacing="7" fill="white" opacity=".72">FICTIONAL PROFILE</text></svg>`;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+const makePhotos = (
+  index: number,
+  displayName: string,
+  selfGender: SelfGender4,
+  count: number,
+): [MediaAsset, ...MediaAsset[]] => {
+  const artwork = selectAnimeCharacterPortrait(selfGender, index);
+  return Array.from(
+    { length: count },
+    (_, ordinal) => toAnimeCharacterMedia(index, ordinal, displayName, artwork),
+  ) as [MediaAsset, ...MediaAsset[]];
 };
-
-const makePhotos = (index: number, displayName: string, count: number): [MediaAsset, ...MediaAsset[]] =>
-  Array.from({ length: count }, (_, ordinal): MediaAsset => ({
-    id: `media_synth_${String(index + 1).padStart(3, '0')}_${ordinal + 1}`,
-    url: abstractSvgUrl(index, ordinal, displayName),
-    alt: `${displayName}的虚构抽象插画 ${ordinal + 1}`,
-    width: 900,
-    height: 1125,
-  })) as [MediaAsset, ...MediaAsset[]];
 
 const makePrompts = (
   interests: readonly string[],
@@ -489,7 +473,7 @@ export const generateSyntheticUserRecords = (
     };
     const occupations = OCCUPATIONS_BY_INDUSTRY[industry];
     const occupation = occupations[fieldHash(seed, index, 'occupation') % occupations.length];
-    const photos = makePhotos(index, identity.displayName, photoCounts[index]);
+    const photos = makePhotos(index, identity.displayName, selfGender, photoCounts[index]);
     const prompts = makePrompts(interests, promptCounts[index]);
     const permissions = makePermissions(index);
 
@@ -642,14 +626,14 @@ export const syntheticPersonFeedCards: readonly PersonFeedCard[] = syntheticPeop
       reason: {
         code: leadInterest ? FeedReasonCode.SHARED_INTEREST : FeedReasonCode.INTEREST_EXPLORATION,
         headline: leadInterest ? `可以从${leadInterest}聊起` : '看看彼此公开分享的资料',
-        explanation: '推荐依据仅来自双方允许用于公开解释的虚构资料字段。',
+        explanation: '推荐依据仅来自双方授权公开的资料。',
         evidenceLabels: explanationContext.interests.slice(0, 2),
       },
       expiresAt: feedExpiresAt,
       presentation: {
         template: FeedPresentationTemplate.PERSON_PORTRAIT,
         image: person.photos[0],
-        eyebrow: '虚构资料 · 真人流程已验证',
+        eyebrow: '资料完整',
         headline: `${person.displayName}，${person.age}`,
         supportingText: `${person.occupation} · ${person.city}`,
         badges: person.interests.slice(0, 2).map((label, badgeIndex) => ({

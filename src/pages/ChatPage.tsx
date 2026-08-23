@@ -63,9 +63,6 @@ export interface ChatPageProps {
   };
 }
 
-const transportOrder: readonly ChatTransport[] = ['WS', 'SSE', 'POLLING'];
-const transportLabels: Record<ChatTransport, string> = { WS: 'WebSocket', SSE: 'SSE', POLLING: '轮询' };
-
 export function ChatPage({
   roomType,
   thread,
@@ -108,7 +105,7 @@ export function ChatPage({
       });
       setDraft('');
     } catch (error) {
-      setLocalError(error instanceof Error ? error.message : '发送没有确认，草稿仍保留在本机');
+      setLocalError(error instanceof Error ? error.message : '发送失败，内容已为你保留');
     } finally {
       setSubmitting(false);
     }
@@ -151,7 +148,7 @@ export function ChatPage({
             people={people}
           />
         )) : (
-          <div className="state-card state-card--empty"><MessageCircle /><h2>从一句真诚的话开始</h2><p>你的输入只保存在当前页面，点击发送后才会提交。</p></div>
+          <div className="state-card state-card--empty"><MessageCircle /><h2>从一句真诚的话开始</h2><p>写下想说的话，发送前仅你可见。</p></div>
         )}
       </main>
 
@@ -189,14 +186,14 @@ export function ChatPage({
           />
         </label>
         <div className="composer-actions">
-          <small>本地草稿 · 不自动发送 · {draft.length}/1000</small>
+          <small>未发送 · 仅你可见 · {draft.length}/1000</small>
           <button
             type="button"
             className="primary-button"
             disabled={!trimmedDraft || submitting || !canSend || isOffline}
             onClick={submit}
           >
-            <Send size={17} />{submitting ? '发送中…' : '明确发送'}
+            <Send size={17} />{submitting ? '发送中…' : '发送'}
           </button>
         </div>
       </footer>
@@ -205,30 +202,18 @@ export function ChatPage({
 }
 
 function ConnectionStrip({ connection }: { connection: ChatConnectionState }) {
-  const attempted = new Set(connection.attempted);
   const phaseLabel = connection.phase === 'LIVE'
-    ? '实时连接'
+    ? '连接正常'
     : connection.phase === 'DEGRADED'
-      ? '已降级，消息仍同步'
+      ? '连接较慢，消息仍会同步'
       : connection.phase === 'CONNECTING'
         ? '正在连接'
-        : '连接已离线';
+        : '连接已断开';
 
   return (
     <section className={`connection-strip connection-strip--${connection.phase.toLowerCase()}`} aria-label="消息连接状态" role="status">
       <Radio size={15} />
-      <div>
-        <strong>{phaseLabel}</strong>
-        <span className="transport-path">
-          {transportOrder.map((transport, index) => (
-            <span key={transport}>
-              {index > 0 && <i aria-hidden="true">→</i>}
-              <b className={connection.transport === transport ? 'is-active' : attempted.has(transport) ? 'was-attempted' : ''}>{transportLabels[transport]}</b>
-            </span>
-          ))}
-        </span>
-      </div>
-      <small>seq {String(connection.lastReceivedSeq).padStart(4, '0')}{connection.transport === 'POLLING' && connection.pollingIntervalSeconds ? ` · ${connection.pollingIntervalSeconds}s` : ''}</small>
+      <strong>{phaseLabel}</strong>
     </section>
   );
 }
@@ -251,7 +236,6 @@ function MessageBubble({
   if (isService) {
     return (
       <article className={`message-event message-event--${message.kind.toLowerCase()}`} data-seq={seq}>
-        <span className="message-seq">SEQ {String(seq).padStart(4, '0')}</span>
         <MessageKindIcon kind={message.kind} />
         <div><strong>{messageKindLabel(message.kind)}</strong><p>{message.text}</p></div>
         <time dateTime={message.createdAt}>{messageTime(message.createdAt)}</time>
@@ -263,7 +247,6 @@ function MessageBubble({
     <article className={`message-bubble ${isMine ? 'message-bubble--mine' : 'message-bubble--theirs'}`} data-seq={seq}>
       <header>
         <span>{isMine ? '你' : sender?.displayName ?? '会话成员'}</span>
-        <b className="message-seq">SEQ {String(seq).padStart(4, '0')}</b>
       </header>
       <p>{message.text}</p>
       <footer>
