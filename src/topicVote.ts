@@ -165,6 +165,7 @@ export function pickPartnerForMode(
   people: readonly Person[],
   currentUserId: PersonId,
   topicId?: string,
+  rotation = 0,
 ) {
   const pool = people.filter((person) => person.id !== currentUserId);
   if (pool.length === 0) return people[0];
@@ -180,5 +181,5 @@ export function pickPartnerForMode(
     : topicId
       ? Array.from(topicId).reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 0)
       : 0;
-  return pool[(topicOffset + modeOffset) % pool.length] ?? pool[0];
+  return pool[(topicOffset + modeOffset + rotation) % pool.length] ?? pool[0];
 }

@@ -52,6 +52,7 @@ export default function App() {
   const [createdThreads, setCreatedThreads] = useState<Thread[]>([]);
   const [createdMessages, setCreatedMessages] = useState<Message[]>([]);
   const [topicMatch, setTopicMatch] = useState<TopicMatchSession | null>(null);
+  const [topicMatchRotations, setTopicMatchRotations] = useState<Record<string, number>>({});
   const [discussionRuntimes, setDiscussionRuntimes] = useState<Record<string, DiscussionRuntime>>({});
   const { votes: topicVotes, saveVote } = useTopicVotes();
   const scrollPositions = useRef(new Map<string, number>());
@@ -91,9 +92,27 @@ export default function App() {
     }
     const existingThread = findActiveTopicDiscussion(topic.id, matchMode, allThreads, currentUser.profile.id);
     const partnerId = existingThread ? counterpartOf(existingThread, currentUser.profile.id) : undefined;
-    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(matchMode, people, currentUser.profile.id, topic.id);
+    const rotationKey = `${topic.id}:${matchMode}`;
+    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(
+      matchMode,
+      people,
+      currentUser.profile.id,
+      topic.id,
+      topicMatchRotations[rotationKey] ?? 0,
+    );
     setTopicMatch({ topic, partner, matchMode, vote, existingThread, phase: 'searching' });
-  }, [allThreads, online, setMessage]);
+  }, [allThreads, online, setMessage, topicMatchRotations]);
+
+  const cancelTopicMatch = useCallback(() => {
+    if (topicMatch?.phase === 'matched' && !topicMatch.existingThread) {
+      const rotationKey = `${topicMatch.topic.id}:${topicMatch.matchMode}`;
+      setTopicMatchRotations((current) => ({
+        ...current,
+        [rotationKey]: (current[rotationKey] ?? 0) + 1,
+      }));
+    }
+    setTopicMatch(null);
+  }, [topicMatch]);
 
   const enterTopicMatch = useCallback(() => {
     if (!topicMatch) return;
@@ -227,7 +246,7 @@ export default function App() {
     <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
-    {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={() => setTopicMatch(null)} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>}
+    {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={cancelTopicMatch} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>}
     {message && <div className="toast" role="status" aria-live="polite">{message}</div>}
   </>;
 }
