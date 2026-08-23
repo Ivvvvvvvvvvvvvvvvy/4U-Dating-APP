@@ -25,7 +25,7 @@ export function topicGenreLabel(topic: Topic) {
 }
 
 export function topicPrimaryAction(topic: Topic) {
-  return topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '加入讨论';
+  return topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '立即开聊';
 }
 
 export function dimensionLabel(dimension: RelationshipDimension) {
@@ -63,7 +63,7 @@ export function matchModeCopy(
     return {
       title: '和正在看同一话题的人聊聊',
       description: '系统优先匹配当前在线、选择了同一生活话题的人。讨论前只展示有限资料。',
-      action: '加入讨论',
+      action: '立即开聊',
     };
   }
   const position = topic.positionOptions.find((option) => option.id === vote?.positionId)?.label ?? '这个选择';

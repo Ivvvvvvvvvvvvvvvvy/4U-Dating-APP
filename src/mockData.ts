@@ -1402,7 +1402,7 @@ export const homeFeed = [
       supportingText: '去远方，还是重新认识日常？',
       badges: [{ label: '即时讨论', tone: 'ACCENT' }],
       facts: [{ label: '讨论', value: '94 条' }],
-      primaryActionLabel: '加入讨论',
+      primaryActionLabel: '立即开聊',
     },
     allowedActions: [FeedAction.VIEW_DETAIL, FeedAction.JOIN_DISCUSSION, FeedAction.SAVE, FeedAction.HIDE, FeedAction.REPORT],
   },
@@ -1465,7 +1465,7 @@ export const topicFeed = topics.map((topic, index): TopicFeedCard => {
     cardId: ('feed_topic_' + topic.id.slice('topic_'.length)) as TopicFeedCard['cardId'],
     entityId: topic.id, entityVersion: topic.entityVersion, requestId: 'request_topic_vertical_20260822', rankPosition: index + 1,
     reason: { code: FeedReasonCode.FRESH_DISCUSSION, headline: '一个仍在发生的真实讨论', explanation: topic.summary, evidenceLabels: [...topic.tags] },
-    presentation: { ...defaultTopicCard.presentation, image: topic.cover, eyebrow: (topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '关系议题 · 两阶段投票' : topic.tags.some((tag) => tag === '轻表达' || tag === '近况') ? '轻量表达' : '生活兴趣 · 即时讨论'), headline: topic.title, supportingText: topic.summary, facts: [{ label: '在线', value: String(2 + (topic.replyCount % 4)) + ' 人' }], primaryActionLabel: topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '加入讨论' },
+    presentation: { ...defaultTopicCard.presentation, image: topic.cover, eyebrow: (topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '关系议题 · 两阶段投票' : topic.tags.some((tag) => tag === '轻表达' || tag === '近况') ? '轻量表达' : '生活兴趣 · 即时讨论'), headline: topic.title, supportingText: topic.summary, facts: [{ label: '在线', value: String(2 + (topic.replyCount % 4)) + ' 人' }], primaryActionLabel: topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '立即开聊' },
     allowedActions: [FeedAction.VIEW_DETAIL, topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? FeedAction.VOTE : FeedAction.JOIN_DISCUSSION, FeedAction.SAVE, FeedAction.HIDE, FeedAction.REPORT],
   };
 });

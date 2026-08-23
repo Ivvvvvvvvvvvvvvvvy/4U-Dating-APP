@@ -22,6 +22,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { ChatPage } from './pages/ChatPage';
 import { CreateActivityPage } from './pages/CreateActivityPage';
 import { SearchPage } from './pages/SearchPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+import { EntryPage } from './pages/EntryPage';
 import { clearActivityDraft, createEmptyActivityDraft, hasStoredActivityDraft, loadActivityDraft, saveActivityDraft } from './activityDraft';
 import { randomId } from './randomId';
 import { findGeneratedTopicById, resolveGeneratedTopicEntity } from './topicGenerator';
@@ -113,9 +115,14 @@ export default function App() {
     }
     const existingThread = findActiveTopicDiscussion(topic.id, matchMode, allThreads, currentUser.profile.id);
     const partnerId = existingThread ? counterpartOf(existingThread, currentUser.profile.id) : undefined;
-    const partner = existingThread
-      ? partnerId && findPersonById(partnerId)
-      : pickPartnerForMode(matchMode, people, currentUser.profile.id);
+    const rotationKey = `${topic.id}:${matchMode}`;
+    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(
+      matchMode,
+      people,
+      currentUser.profile.id,
+      topic.id,
+      topicMatchRotations[rotationKey] ?? 0,
+    );
     if (!partner) {
       setMessage(existingThread ? '会话成员资料暂不可用' : '暂时没有可匹配的讨论对象');
       return;
@@ -247,7 +254,8 @@ export default function App() {
   };
 
   let page: React.ReactNode;
-  if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
+  if (route.kind === 'entry') page = <EntryPage onGuest={() => go('/home?primary=recommend&secondary=for-you')} onRegister={() => go('/onboarding/welcome')}/>;
+  else if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
   else if (route.kind === 'discover') page = <DiscoverPage segment={route.segment} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go}/>;
   else if (route.kind === 'messages') page = <MessagesPage category={route.category} threads={allThreads} messages={allMessages} people={people} activities={activities} topics={topics} currentUserId={currentUser.profile.id} notifications={demoNotifications} onCategoryChange={(category) => go('/messages?category=' + category)} onOpenThread={(roomType, threadId) => go('/messages/' + roomType + '/' + threadId)} onOpenNotification={() => setMessage('通知详情已读取')}/>;
   else if (route.kind === 'me') page = <ProfilePage section={route.section} user={currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')}/>;
@@ -259,6 +267,7 @@ export default function App() {
     page = thread ? <ChatPage roomType={route.roomType} thread={thread} messages={[...getMessagesForThread(thread.id),...createdMessages.filter((item)=>item.threadId===thread.id),...sentMessages.filter((item)=>item.threadId===thread.id)]} people={people} currentUserId={currentUser.profile.id} connection={{transport:online?'WS':'POLLING',phase:online?'LIVE':'OFFLINE',attempted:online?['WS']:['WS','SSE','POLLING'],lastReceivedSeq:thread.messageIds.length + sentMessages.filter((item)=>item.threadId===thread.id).length,pollingIntervalSeconds:10}} onBack={routeBack} onSend={async(request)=>{await runDemoMutation({action:'send',entityId:request.threadId,expectedVersion:thread.entityVersion,currentVersion:thread.entityVersion,requiresOnline:true,commit:()=>{setSentMessages((items)=>[...items,{id:('message_local_'+randomId().replaceAll('-','')) as never,threadId:request.threadId,kind:'TEXT' as never,senderId:currentUser.profile.id,text:request.text,createdAt:new Date().toISOString() as never,deliveryStatus:'SENT' as never}]);}});setMessage('消息已发送');}} discussionRoom={topic && runtime ? { topic, runtime, partner, onNextPrompt: (prompt) => { setCreatedMessages((items) => [...items, { id: ('message_prompt_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.STRUCTURED_PROMPT, senderId: null, promptStage: prompt.promptStage, text: prompt.text, createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('已加入下一阶段提示，不会代你发送'); }, onContinue: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.CONTINUE, partnerDecision: DiscussionContinueDecision.CONTINUE, unlocked: true } })); setCreatedMessages((items) => [...items, { id: ('message_continue_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.SYSTEM, senderId: null, event: 'MATCH_CREATED' as never, text: '你们都愿意继续认识。已按隐私设置解锁更多资料。', createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('双方已同意继续认识'); }, onFinish: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.FINISH } })); setMessage('讨论已结束，不会向对方展示原因'); routeBack(); }, onLeave: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.LEFT_TEMPORARILY } })); setMessage('已暂时离开，房间会保留一段时间'); routeBack(); }, onReport: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.REPORTED } })); setMessage('已中止讨论并提交安全处理'); routeBack(); } } : undefined}/> : <NotFound onBack={routeBack}/>;
   }
   else if (route.kind === 'create') page = <CreateActivityPage key={route.draftId} draftId={route.draftId} step={route.step} draft={draft} submissionState={submissionState} onDraftChange={setDraft} onStepChange={(step) => go('/activities/new/' + route.draftId + '/' + step)} onCancel={leaveCreateFlow} onSaveDraft={(next) => persistDraft(route.draftId, next)} onSubmitForReview={() => submitDraft(route.draftId)}/>;
+  else if (route.kind === 'onboarding') page = <OnboardingPage step={route.step} online={online} onNavigate={go}/>;
   else if (route.kind === 'search') page = <SearchPage query={route.query} activities={activities} people={people} topics={topics} onQueryChange={(query) => navigate('/search' + (query ? '?q=' + encodeURIComponent(query) : ''), { replace: true, state: location.state })} onOpenActivity={(activity)=>navigate('/activities/'+activity.id,{state:{from:location.pathname+location.search}})} onOpenPerson={(person)=>navigate('/people/'+person.id,{state:{from:location.pathname+location.search}})} onOpenTopic={(topic)=>navigate('/topics/'+topic.id,{state:{from:location.pathname+location.search}})} onBack={routeBack}/>;
   else page = null;
 
@@ -289,10 +298,10 @@ export default function App() {
     <div ref={statusStackRef} className="global-status-stack">
       {!online && <OfflineBanner/>}
     </div>
-    <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} viewer={currentUser.profile} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
+    <AppShell active={routeTab(route)} detail={detail} immersive={['entry','chat','create','search','onboarding'].includes(route.kind)} chromeless={route.kind === 'entry' || route.kind === 'onboarding'} viewer={currentUser.profile} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
-    {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={() => setTopicMatch(null)} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>}
+    {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={cancelTopicMatch} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>} 
     {message && <div className={'toast ' + (route.kind === 'home' ? 'toast--home' : route.kind === 'chat' ? 'toast--chat' : detail ? 'toast--detail' : '')} role="status" aria-live="polite">{message}</div>}
   </>;
 }
