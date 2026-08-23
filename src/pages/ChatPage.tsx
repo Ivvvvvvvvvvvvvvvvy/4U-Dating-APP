@@ -152,6 +152,8 @@ export function ChatPage({
         ) : <span aria-hidden="true" />}
       </header>
 
+      <ConnectionStrip connection={connection} />
+
       {!discussionRoom && <div className="chat-safety-note" role="note">
         <ShieldCheck size={16} />
         <span>{thread.kind === ThreadKind.ACTIVITY
