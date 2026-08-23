@@ -71,7 +71,7 @@ await page.getByRole('button', { name: '申请同行' }).click();
 await page.getByRole('button', { name: '确认并提交申请' }).click();
 await page.waitForTimeout(450);
 assert(await page.getByRole('button', { name: '查看申请' }).isVisible(), 'submitted application state missing');
-await page.goto('http://127.0.0.1:4173/activities/activity_missing', { waitUntil: 'networkidle' });
+await page.goto(`${baseUrl}/activities/activity_missing`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('heading', { name: '内容暂不可用' }).isVisible(), 'invalid detail route must show not-found state');
 
 assert(errors.length === 0, 'browser errors: ' + errors.join(' | '));
