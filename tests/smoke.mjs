@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 
+const baseUrl = process.env.BASE_URL ?? 'http://127.0.0.1:4173';
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 const errors = [];
@@ -7,7 +8,7 @@ page.on('console', (message) => { if (message.type() === 'error') errors.push(me
 page.on('pageerror', (error) => errors.push(error.message));
 const assert = (value, message) => { if (!value) throw new Error(message); };
 
-await page.goto('http://127.0.0.1:4173/home?primary=recommend&secondary=for-you', { waitUntil: 'networkidle' });
+await page.goto(`${baseUrl}/home?primary=recommend&secondary=for-you`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('navigation', { name: '主导航' }).isVisible(), 'mobile navigation missing');
 assert(await page.locator('[data-card-type]').count() === 8, 'home should render eight contract cards');
 assert(JSON.stringify(await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.slice(0, 4).map((node) => node.dataset.cardType))) === JSON.stringify(['ACTIVITY','PERSON','TOPIC','ACTIVITY']), 'first four card order mismatch');
@@ -56,11 +57,11 @@ await page.getByRole('button', { name: '明确发送' }).click();
 await page.waitForTimeout(450);
 assert(await page.getByText('你好，很高兴认识你').isVisible(), 'explicitly sent message missing');
 
-await page.goto('http://127.0.0.1:4173/activities/activity_vinyl_night', { waitUntil: 'networkidle' });
+await page.goto(`${baseUrl}/activities/activity_vinyl_night`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('button', { name: '当前不可申请' }).isDisabled(), 'closed activity must not accept applications');
-await page.goto('http://127.0.0.1:4173/activities/activity_wutong_city_walk', { waitUntil: 'networkidle' });
+await page.goto(`${baseUrl}/activities/activity_wutong_city_walk`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('button', { name: '查看申请' }).isVisible(), 'existing application must not be submitted twice');
-await page.goto('http://127.0.0.1:4173/activities/activity_monet_night', { waitUntil: 'networkidle' });
+await page.goto(`${baseUrl}/activities/activity_monet_night`, { waitUntil: 'networkidle' });
 await page.getByRole('button', { name: '申请同行' }).click();
 assert(await page.getByRole('dialog', { name: '确认你的参与申请' }).isVisible(), 'application confirmation missing');
 await page.keyboard.press('Escape');
