@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MessageCircle, Radio } from 'lucide-react';
+import { MessageCircle, Radio, ShieldCheck } from 'lucide-react';
 import { TopicKind } from '../domain';
 import type { TopicMatchSession } from '../topicMatch';
 import { matchModeCopy, voteLabels } from '../topicVote';
