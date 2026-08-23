@@ -54,6 +54,7 @@ export default function App() {
   const [createdThreads, setCreatedThreads] = useState<Thread[]>([]);
   const [createdMessages, setCreatedMessages] = useState<Message[]>([]);
   const [topicMatch, setTopicMatch] = useState<TopicMatchSession | null>(null);
+  const [topicMatchRotations, setTopicMatchRotations] = useState<Record<string, number>>({});
   const [discussionRuntimes, setDiscussionRuntimes] = useState<Record<string, DiscussionRuntime>>({});
   const { votes: topicVotes, saveVote } = useTopicVotes();
   const statusStackRef = useRef<HTMLDivElement>(null);
@@ -120,7 +121,18 @@ export default function App() {
       return;
     }
     setTopicMatch({ topic, partner, matchMode, vote, existingThread, phase: 'searching' });
-  }, [allThreads, online, setMessage]);
+  }, [allThreads, online, setMessage, topicMatchRotations]);
+
+  const cancelTopicMatch = useCallback(() => {
+    if (topicMatch?.phase === 'matched' && !topicMatch.existingThread) {
+      const rotationKey = `${topicMatch.topic.id}:${topicMatch.matchMode}`;
+      setTopicMatchRotations((current) => ({
+        ...current,
+        [rotationKey]: (current[rotationKey] ?? 0) + 1,
+      }));
+    }
+    setTopicMatch(null);
+  }, [topicMatch]);
 
   const enterTopicMatch = useCallback(() => {
     if (!topicMatch) return;
@@ -136,7 +148,7 @@ export default function App() {
       [prepared.thread.id]: current[prepared.thread.id] ?? initialDiscussionRuntime(prepared.thread, topicMatch.vote),
     }));
     setTopicMatch(null);
-    setMessage('已匹配到限时讨论房');
+    setMessage('和他聊一聊吧');
     navigate('/messages/discussion/' + prepared.thread.id, { state: { from: location.pathname + location.search } });
   }, [location.pathname, location.search, navigate, setMessage, topicMatch]);
 

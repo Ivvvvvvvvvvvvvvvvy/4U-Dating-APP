@@ -56,7 +56,6 @@ const lifestyleSubjects = [
 ] as const;
 
 const hotContexts = ['刚确认关系时', '异地相处时', '双方工作都很忙时', '发生过类似误会后', '准备认真发展时', '生活节奏差异很大时', '关系进入新阶段时'];
-const lifeContexts = ['在陌生城市生活时', '一个人度过时', '和刚认识的人相处时', '没有工作安排的一天', '预算有限的时候', '天气刚刚好的周末', '想把生活过慢一点的时候'];
 const hotCovers = [
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=84',
   'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=84',
@@ -135,21 +134,20 @@ function createHotTopic(batch: number, index: number): RelationshipTopic {
 
 function createLifestyleTopic(batch: number, index: number): LifestyleTopic {
   const source = lifestyleSubjects[(batch * 5 + index) % lifestyleSubjects.length];
-  const context = lifeContexts[(batch * 2 + index) % lifeContexts.length];
   const token = `life_${batch}_${index}`;
   return {
     entityType: FeedCardType.TOPIC,
     id: `topic_ai_${token}`,
     entityVersion: 1,
     kind: TopicKind.LIFESTYLE_PROMPT,
-    title: `${context}，${source[0]}`,
+    title: source[0],
     summary: source[1],
     cover: media('lifestyle', token, index),
     moderationStatus: TopicModerationStatus.PUBLISHED,
     replyCount: 24 + ((batch * 29 + index * 17) % 180),
     lastActivityAt: new Date(Date.now() - ((index + 1) * 43 + batch % 11) * 60_000).toISOString() as LifestyleTopic['lastActivityAt'],
     tags: ['AI 生活', source[3]],
-    prompt: `${context}。${source[1]}`,
+    prompt: source[1],
     openingQuestion: source[2],
   };
 }

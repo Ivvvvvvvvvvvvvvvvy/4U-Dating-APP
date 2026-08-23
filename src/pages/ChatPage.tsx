@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, ChevronRight, CircleAlert, MessageCircle, Radio, Send, ShieldCheck, UsersRound } from 'lucide-react';
 import {
   DiscussionContinueDecision,
-  DiscussionMatchMode,
   MessageDeliveryStatus,
   MessageKind,
   ThreadAction,
   ThreadKind,
-  TopicKind,
   type Message,
   type Person,
   type PersonId,
@@ -16,13 +14,24 @@ import {
   type ThreadId,
   type Topic,
 } from '../domain';
-import { ageBand, matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
 import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
+import { Modal } from '../components/Modal';
+import { SafeImage } from '../components/SafeImage';
 
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
+export type DiscussionEndReason = 'PROFILE_PREFERENCE' | 'RELATIONSHIP_PACE' | 'LIFESTYLE' | 'VALUES_BOUNDARIES' | 'COMMUNICATION_STYLE' | 'TOPIC_RELEVANCE';
+
+const discussionEndReasons: readonly { value: DiscussionEndReason; label: string; hint: string }[] = [
+  { value: 'PROFILE_PREFERENCE', label: '基本条件不符合偏好', hint: '年龄、城市、职业或外形等' },
+  { value: 'RELATIONSHIP_PACE', label: '关系目标或发展节奏不一致', hint: '长期关系、认真了解或推进速度' },
+  { value: 'LIFESTYLE', label: '兴趣与生活方式差异较大', hint: '作息、消费习惯、周末安排等' },
+  { value: 'VALUES_BOUNDARIES', label: '价值观或关系边界不合适', hint: '家庭、金钱、忠诚或异性交往等' },
+  { value: 'COMMUNICATION_STYLE', label: '聊天方式不合拍', hint: '主动程度、回复节奏或表达方式' },
+  { value: 'TOPIC_RELEVANCE', label: '这个话题没帮助我了解对方', hint: '本次话题与互动体验不够相关' },
+];
 
 export interface ChatConnectionState {
   /** Transport currently carrying server events. */
@@ -78,7 +87,28 @@ export function ChatPage({
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [finishSurveyOpen, setFinishSurveyOpen] = useState(false);
+  const [finishReasons, setFinishReasons] = useState<DiscussionEndReason[]>([]);
+  const [finishNote, setFinishNote] = useState('');
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+    };
+  }, []);
   const orderedMessages = useMemo(() => orderMessages(thread, messages), [thread, messages]);
+  const visibleMessages = useMemo(() => discussionRoom
+    ? orderedMessages.filter(({ message }) => ![
+      MessageKind.SYSTEM,
+      MessageKind.STRUCTURED_PROMPT,
+      MessageKind.ICEBREAKER_SUGGESTION,
+    ].includes(message.kind))
+    : orderedMessages, [discussionRoom, orderedMessages]);
   const ended = Boolean(discussionRoom && [
     DiscussionContinueDecision.FINISH,
     DiscussionContinueDecision.LEFT_TEMPORARILY,
@@ -88,10 +118,6 @@ export function ChatPage({
   const canSend = thread.allowedActions.includes(ThreadAction.SEND_MESSAGE) && !ended;
   const isOffline = connection.phase === 'OFFLINE';
   const trimmedDraft = draft.trim();
-  const nextPrompt = discussionRoom
-    ? structuredPrompts(discussionRoom.topic).find((prompt) => !messages.some((message) => message.kind === MessageKind.STRUCTURED_PROMPT && message.promptStage === prompt.stage))
-    : undefined;
-
   const submit = async () => {
     if (!trimmedDraft || submitting || !canSend || isOffline) return;
     setSubmitting(true);
@@ -112,13 +138,13 @@ export function ChatPage({
   };
 
   return (
-    <section className="page chat-page screen-enter" aria-labelledby="chat-title" data-room-type={roomType} data-screen-label="聊天详情">
+    <section className={'page chat-page screen-enter' + (discussionRoom ? ' chat-page--discussion' : '')} aria-labelledby="chat-title" data-room-type={roomType} data-screen-label="聊天详情">
       <header className="chat-header">
         <button type="button" className="icon-button" aria-label="返回消息列表" onClick={onBack}><ArrowLeft size={21} /></button>
         <div>
-          <span>{discussionRoom ? (discussionRoom.runtime.unlocked ? '已继续认识' : '有限资料讨论房') : roomLabel(thread)}</span>
+          <span>{discussionRoom ? (discussionRoom.runtime.unlocked ? '已继续认识' : '话题聊天') : roomLabel(thread)}</span>
           <h1 id="chat-title">{discussionRoom?.partner && !discussionRoom.runtime.unlocked
-            ? `${discussionRoom.partner.displayName} · ${ageBand(discussionRoom.partner.age)}`
+            ? `${discussionRoom.partner.displayName} · ${discussionRoom.partner.age}岁`
             : thread.title}</h1>
         </div>
         {onOpenContext ? (
@@ -128,18 +154,21 @@ export function ChatPage({
 
       <ConnectionStrip connection={connection} />
 
-      <div className="chat-safety-note" role="note">
+      {!discussionRoom && <div className="chat-safety-note" role="note">
         <ShieldCheck size={16} />
         <span>{thread.kind === ThreadKind.ACTIVITY
           ? '活动房间只对有权限的参与者开放；集合细节仍按活动权限控制。'
-          : thread.kind === ThreadKind.TOPIC_DISCUSSION
-            ? '限时 1 对 1 讨论；平台不会代你发送建议内容。不合适可结束、暂时离开或举报。'
-            : '不合适时可以停止会话、拉黑或举报；平台不会代你发送建议内容。'}</span>
-      </div>
-      {discussionRoom && <DiscussionContext room={discussionRoom} threadMode={thread.kind === ThreadKind.TOPIC_DISCUSSION ? thread.matchMode : DiscussionMatchMode.SAME_POSITION_SAME_REASON} />}
+          : '不合适时可以停止会话、拉黑或举报；平台不会代你发送建议内容。'}</span>
+      </div>}
 
       <main className="message-stream" aria-live="polite">
-        {orderedMessages.length ? orderedMessages.map(({ message, seq }) => (
+        {discussionRoom && !discussionRoom.runtime.unlocked && (
+          <p className="discussion-inline-note">先聊聊吧，双方同意后会解锁完整资料</p>
+        )}
+        {discussionRoom?.runtime.unlocked && discussionRoom.partner && (
+          <UnlockedProfileCard person={discussionRoom.partner} />
+        )}
+        {visibleMessages.length ? visibleMessages.map(({ message, seq }) => (
           <MessageBubble
             key={message.id}
             message={message}
@@ -155,18 +184,12 @@ export function ChatPage({
       <footer className="chat-composer">
         {discussionRoom && !ended && (
           <div className="discussion-tools">
-            {nextPrompt && (
-              <button type="button" className="secondary-button" onClick={() => discussionRoom.onNextPrompt({ promptStage: nextPrompt.stage, text: nextPrompt.text })}>
-                下一阶段提示：{promptStageLabel(nextPrompt.stage)}
-              </button>
-            )}
             <div className="discussion-end-actions">
               <button type="button" className="primary-button" disabled={discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE} onClick={discussionRoom.onContinue}>
-                {discussionRoom.runtime.unlocked ? '已双向继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续，等待对方' : '继续认识'}
+                {discussionRoom.runtime.unlocked ? '已继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续' : '继续认识'}
               </button>
-              <button type="button" className="text-button" onClick={discussionRoom.onFinish}>结束讨论</button>
-              <button type="button" className="text-button" onClick={discussionRoom.onLeave}>暂时离开</button>
-              <button type="button" className="text-button" onClick={discussionRoom.onReport}>不适 / 举报</button>
+              <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(true)}>结束讨论</button>
+              <button type="button" className="text-button" onClick={discussionRoom.onReport}>举报</button>
             </div>
           </div>
         )}
@@ -179,7 +202,7 @@ export function ChatPage({
             id={`draft-${thread.id}`}
             value={draft}
             maxLength={1000}
-            rows={2}
+            rows={1}
             placeholder={canSend ? '写下你想亲自发送的话…' : '会话已关闭'}
             disabled={!canSend}
             onChange={(event) => setDraft(event.target.value)}
@@ -275,33 +298,21 @@ function orderMessages(thread: Thread, messages: readonly Message[]) {
   return [...canonical, ...appended].map((message, index) => ({ message, seq: index + 1 }));
 }
 
-function DiscussionContext({
-  room,
-  threadMode,
-}: {
-  room: NonNullable<ChatPageProps['discussionRoom']>;
-  threadMode: DiscussionMatchMode;
-}) {
-  const copy = matchModeCopy(threadMode, room.topic, room.runtime.vote);
-  const mine = room.topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? voteLabels(room.topic, room.runtime.vote) : undefined;
+function UnlockedProfileCard({ person }: { person: Person }) {
   return (
-    <section className="discussion-context">
-      <strong>{copy.title}</strong>
-      <p>
-        {room.partner ? `${room.partner.displayName} · ${ageBand(room.partner.age)} · ${room.partner.city}` : '对方资料有限展示'}
-        {mine?.position ? ` · 你的立场：${mine.position}` : ''}
-        {room.runtime.unlocked ? ' · 双方已同意继续认识' : ' · 完整资料尚未解锁'}
-      </p>
+    <section className="unlocked-profile-card" aria-label={`${person.displayName}的个人卡片`}>
+      <SafeImage src={person.photos[0].url} alt={person.displayName} ratio="4 / 5" fallbackLabel="头像" />
+      <div>
+        <span>双方已同意继续认识 · 资料已解锁</span>
+        <h2>{person.displayName}，{person.age}岁</h2>
+        <p>{person.city} · {person.occupation} · {person.mbti}</p>
+        <blockquote>{person.bio}</blockquote>
+        <div className="unlocked-profile-tags">
+          {person.interests.slice(0, 3).map((interest) => <i key={interest}>{interest}</i>)}
+        </div>
+      </div>
     </section>
   );
-}
-
-function promptStageLabel(stage: StructuredPromptMessage['promptStage']) {
-  if (stage === 'OPENING') return '开场';
-  if (stage === 'UNDERSTANDING') return '理解';
-  if (stage === 'CONDITION') return '条件';
-  if (stage === 'REFLECTION') return '迁移';
-  return '收束';
 }
 
 function roomLabel(thread: Thread) {
