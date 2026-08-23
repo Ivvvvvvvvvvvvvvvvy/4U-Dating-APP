@@ -25,13 +25,15 @@ import { SafeImage } from '../components/SafeImage';
 
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
-export type DiscussionEndReason = 'NO_SPARK' | 'DIFFERENT_VIEWS' | 'CONVERSATION_DIFFICULT' | 'WANT_ANOTHER_MATCH';
+export type DiscussionEndReason = 'PROFILE_PREFERENCE' | 'RELATIONSHIP_PACE' | 'LIFESTYLE' | 'VALUES_BOUNDARIES' | 'COMMUNICATION_STYLE' | 'TOPIC_RELEVANCE';
 
-const discussionEndReasons: readonly { value: DiscussionEndReason; label: string }[] = [
-  { value: 'NO_SPARK', label: '没有继续聊下去的感觉' },
-  { value: 'DIFFERENT_VIEWS', label: '观点或生活方式不太合适' },
-  { value: 'CONVERSATION_DIFFICULT', label: '聊天过程不够自然' },
-  { value: 'WANT_ANOTHER_MATCH', label: '想换一个人聊聊' },
+const discussionEndReasons: readonly { value: DiscussionEndReason; label: string; hint: string }[] = [
+  { value: 'PROFILE_PREFERENCE', label: '基本条件不符合偏好', hint: '年龄、城市、职业或外形等' },
+  { value: 'RELATIONSHIP_PACE', label: '关系目标或发展节奏不一致', hint: '长期关系、认真了解或推进速度' },
+  { value: 'LIFESTYLE', label: '兴趣与生活方式差异较大', hint: '作息、消费习惯、周末安排等' },
+  { value: 'VALUES_BOUNDARIES', label: '价值观或关系边界不合适', hint: '家庭、金钱、忠诚或异性交往等' },
+  { value: 'COMMUNICATION_STYLE', label: '聊天方式不合拍', hint: '主动程度、回复节奏或表达方式' },
+  { value: 'TOPIC_RELEVANCE', label: '这个话题没帮助我了解对方', hint: '本次话题与互动体验不够相关' },
 ];
 
 export interface ChatConnectionState {
@@ -92,7 +94,8 @@ export function ChatPage({
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
   const [finishSurveyOpen, setFinishSurveyOpen] = useState(false);
-  const [finishReason, setFinishReason] = useState<DiscussionEndReason | ''>('');
+  const [finishReasons, setFinishReasons] = useState<DiscussionEndReason[]>([]);
+  const [finishNote, setFinishNote] = useState('');
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -218,31 +221,46 @@ export function ChatPage({
       </footer>
       {discussionRoom && finishSurveyOpen && (
         <Modal title="为什么结束这次讨论？" onClose={() => setFinishSurveyOpen(false)}>
-          <p className="finish-survey-intro">只需选择一项。你的反馈不会展示给对方，并会让下一次匹配更精准。</p>
-          <div className="finish-survey-options" role="radiogroup" aria-label="结束讨论的原因">
+          <p className="finish-survey-intro">选择最主要的原因（最多 3 项）。反馈不会展示给对方，会用于优化下一次匹配的人选和话题。</p>
+          <div className="finish-survey-options" role="group" aria-label="结束讨论的原因">
             {discussionEndReasons.map((reason) => (
               <button
                 key={reason.value}
                 type="button"
-                role="radio"
-                aria-checked={finishReason === reason.value}
-                className={finishReason === reason.value ? 'is-selected' : ''}
-                onClick={() => setFinishReason(reason.value)}
+                role="checkbox"
+                aria-checked={finishReasons.includes(reason.value)}
+                className={finishReasons.includes(reason.value) ? 'is-selected' : ''}
+                onClick={() => setFinishReasons((current) => current.includes(reason.value)
+                  ? current.filter((item) => item !== reason.value)
+                  : current.length < 3 ? [...current, reason.value] : current)}
               >
-                <i aria-hidden="true" />{reason.label}
+                <i aria-hidden="true" />
+                <span><strong>{reason.label}</strong><small>{reason.hint}</small></span>
               </button>
             ))}
           </div>
+          <label className="finish-survey-note">
+            <span>下一次更希望遇到什么样的人？</span>
+            <textarea
+              value={finishNote}
+              rows={3}
+              maxLength={200}
+              placeholder="例如：希望对方更主动一些，住得近，周末也喜欢户外活动…"
+              onChange={(event) => setFinishNote(event.target.value)}
+            />
+            <small>{finishNote.length}/200 · 选填</small>
+          </label>
           <button
             type="button"
             className="primary-button"
-            disabled={!finishReason}
+            disabled={!finishReasons.length && !finishNote.trim()}
             onClick={() => {
-              if (!finishReason) return;
+              if (!finishReasons.length && !finishNote.trim()) return;
               localStorage.setItem(`4u:rfc:discussion-feedback:${thread.id}`, JSON.stringify({
                 topicId: discussionRoom.topic.id,
                 partnerId: discussionRoom.partner?.id,
-                reason: finishReason,
+                reasons: finishReasons,
+                note: finishNote.trim(),
                 createdAt: new Date().toISOString(),
               }));
               discussionRoom.onFinish();
