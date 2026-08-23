@@ -28,13 +28,6 @@ export function topicPrimaryAction(topic: Topic) {
   return topic.kind === TopicKind.RELATIONSHIP_SCENARIO ? '说说你的选择' : '加入讨论';
 }
 
-export function ageBand(age: number) {
-  if (age < 25) return '18-24岁';
-  if (age < 30) return '25-29岁';
-  if (age < 35) return '30-34岁';
-  return '35岁以上';
-}
-
 export function dimensionLabel(dimension: RelationshipDimension) {
   const labels: Record<RelationshipDimension, string> = {
     [RelationshipDimension.LOYALTY_AND_BOUNDARIES]: '忠诚与异性边界',

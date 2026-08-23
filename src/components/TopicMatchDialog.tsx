@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { MessageCircle, Radio } from 'lucide-react';
 import { TopicKind } from '../domain';
 import type { TopicMatchSession } from '../topicMatch';
-import { ageBand, matchModeCopy, voteLabels } from '../topicVote';
+import { matchModeCopy, voteLabels } from '../topicVote';
 import { Modal } from './Modal';
 import { SafeImage } from './SafeImage';
 
@@ -52,7 +52,7 @@ export function TopicMatchDialog({
             />
             <div>
               <span><Radio size={13} />现在在线</span>
-              <strong>{session.partner.displayName} · {ageBand(session.partner.age)}</strong>
+              <strong>{session.partner.displayName} · {session.partner.age}岁</strong>
               <p>{session.partner.city} · 当前话题已选择</p>
               {partnerVote?.position && <small>对方将按该开聊方式展示对应立场</small>}
             </div>

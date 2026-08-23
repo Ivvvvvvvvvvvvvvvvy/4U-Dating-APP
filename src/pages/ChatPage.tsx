@@ -16,7 +16,7 @@ import {
   type ThreadId,
   type Topic,
 } from '../domain';
-import { ageBand, matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
+import { matchModeCopy, structuredPrompts, voteLabels } from '../topicVote';
 import type { DiscussionRuntime } from '../topicMatch';
 import type { MessageRoomType } from './MessagesPage';
 import { randomId } from '../randomId';
@@ -121,7 +121,7 @@ export function ChatPage({
         <div>
           <span>{discussionRoom ? (discussionRoom.runtime.unlocked ? '已继续认识' : '有限资料讨论房') : roomLabel(thread)}</span>
           <h1 id="chat-title">{discussionRoom?.partner && !discussionRoom.runtime.unlocked
-            ? `${discussionRoom.partner.displayName} · ${ageBand(discussionRoom.partner.age)}`
+            ? `${discussionRoom.partner.displayName} · ${discussionRoom.partner.age}岁`
             : thread.title}</h1>
         </div>
         {onOpenContext ? (
@@ -305,7 +305,7 @@ function DiscussionContext({
     <section className="discussion-context">
       <strong>{copy.title}</strong>
       <p>
-        {room.partner ? `${room.partner.displayName} · ${ageBand(room.partner.age)} · ${room.partner.city}` : '对方资料有限展示'}
+        {room.partner ? `${room.partner.displayName} · ${room.partner.age}岁 · ${room.partner.city}` : '对方资料有限展示'}
         {mine?.position ? ` · 你的立场：${mine.position}` : ''}
         {room.runtime.unlocked ? ' · 双方已同意继续认识' : ' · 完整资料尚未解锁'}
       </p>
