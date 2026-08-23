@@ -137,6 +137,12 @@ GitHub Pages 使用独立构建：
 npm run build:pages
 ~~~
 
+### 演示用户数据
+
+- 共 50 个 mock 用户：林川体验账号 1 个，以及 49 份确定性生成的成年虚构候选档案。
+- 候选档案保留虚构昵称、年龄、职业与兴趣，头像按明确填写的性别映射至 49 位不同的内地明星公开肖像；明星本人信息不参与用户资料生成。
+- 明星肖像只用于内部 mock 体验，不代表本人注册或背书；对外正式使用前需完成图片授权与肖像权审核。
+
 ### 启动本地后端栈
 
 需要 Docker Compose v2：
@@ -158,6 +164,7 @@ npm run test:contracts
 npm run test:profiles
 npm run test:activities
 npm run test:recommendations
+npm run test:profile-avatars
 ~~~
 
 先在一个终端启动生产预览：

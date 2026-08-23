@@ -52,7 +52,7 @@ import {
   type CurrentUser,
 } from './domain';
 import { syntheticPeople, syntheticPersonFeedCards } from './syntheticPublicData';
-import { CURRENT_USER_ANIME_PORTRAIT } from './animeCharacterPortraits';
+import { CURRENT_USER_CELEBRITY_PORTRAIT } from './celebrityPortraits';
 
 const media = (
   id: string,
@@ -79,7 +79,7 @@ const currentUserProfile: Person = {
   id: 'person_me',
   entityVersion: 4,
   profileStatus: ProfileStatus.RECOMMENDABLE,
-  displayName: '小满',
+  displayName: '林川',
   age: 27,
   city: '上海',
   occupation: '产品设计师',
@@ -91,10 +91,10 @@ const currentUserProfile: Person = {
   photos: [
     media(
       'me_portrait',
-      CURRENT_USER_ANIME_PORTRAIT.url,
-      `小满的角色头像：${CURRENT_USER_ANIME_PORTRAIT.work}${CURRENT_USER_ANIME_PORTRAIT.character}`,
-      CURRENT_USER_ANIME_PORTRAIT.width,
-      CURRENT_USER_ANIME_PORTRAIT.height,
+      CURRENT_USER_CELEBRITY_PORTRAIT.url,
+      '林川的示例头像',
+      CURRENT_USER_CELEBRITY_PORTRAIT.width,
+      CURRENT_USER_CELEBRITY_PORTRAIT.height,
     ),
   ],
   prompts: [

@@ -289,7 +289,7 @@ export default function App() {
     <div ref={statusStackRef} className="global-status-stack">
       {!online && <OfflineBanner/>}
     </div>
-    <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
+    <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} viewer={currentUser.profile} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
     {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={() => setTopicMatch(null)} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>}

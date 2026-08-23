@@ -225,7 +225,7 @@ function StatusLine({ label, complete }: { label: string; complete: boolean }) {
 }
 
 function verificationLabel(status: VerificationStatus) {
-  if (status === VerificationStatus.VERIFIED) return '真人已认证';
+  if (status === VerificationStatus.VERIFIED) return '资料已校验';
   if (status === VerificationStatus.PENDING) return '真人认证审核中';
   if (status === VerificationStatus.FAILED) return '真人认证未通过';
   return '真人尚未认证';
