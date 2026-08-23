@@ -12,9 +12,11 @@
 
 </div>
 
-<a href="https://happyeye1.github.io/4U/">
-  <img src="./docs/assets/readme/home-desktop.jpg" alt="4U 人物、活动与话题综合推荐页" />
-</a>
+<p align="center">
+  <a href="https://happyeye1.github.io/4U/">
+    <img width="390" src="./docs/assets/readme/home-mobile.jpg" alt="4U 手机端人物、活动与话题综合推荐页" />
+  </a>
+</p>
 
 ## 认识，不止一种方式
 
