@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { MessageCircle, Radio, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Radio } from 'lucide-react';
 import { TopicKind } from '../domain';
 import type { TopicMatchSession } from '../topicMatch';
 import { ageBand, matchModeCopy, voteLabels } from '../topicVote';
 import { Modal } from './Modal';
+import { SafeImage } from './SafeImage';
 
 export function TopicMatchDialog({
   session,
@@ -31,7 +32,7 @@ export function TopicMatchDialog({
   return (
     <Modal
       className="topic-match-dialog"
-      title={searching ? '正在匹配在线讨论对象' : '已进入有限资料讨论房'}
+      title={searching ? '正在匹配在线讨论对象' : '和他聊一聊吧'}
       onClose={onCancel}
     >
       {searching ? (
@@ -43,7 +44,12 @@ export function TopicMatchDialog({
       ) : (
         <div className="topic-match-result">
           <div className="topic-match-person topic-match-person--limited">
-            <span className="topic-match-initial" aria-hidden="true">{session.partner.displayName.slice(0, 1)}</span>
+            <SafeImage
+              src={session.partner.photos[0].url}
+              alt={session.partner.displayName}
+              ratio="1 / 1"
+              fallbackLabel="头像"
+            />
             <div>
               <span><Radio size={13} />现在在线</span>
               <strong>{session.partner.displayName} · {ageBand(session.partner.age)}</strong>
@@ -52,12 +58,8 @@ export function TopicMatchDialog({
             </div>
           </div>
           <p>{copy.title}。完整照片墙和详细资料默认不展示，只有双方继续认识后才会解锁。</p>
-          <div className="privacy-callout">
-            <ShieldCheck size={18} />
-            <span>前端合同演示：匹配只发生在当前浏览器。平台不会代你发送建议内容。</span>
-          </div>
           <button className="primary-button" type="button" onClick={onEnter}>
-            <MessageCircle size={17} />进入限时讨论房
+            <MessageCircle size={17} />开始聊天
           </button>
           <button className="text-button" type="button" onClick={onCancel}>先不进入</button>
         </div>

@@ -171,12 +171,21 @@ export function pickPartnerForMode(
   mode: DiscussionMatchMode,
   people: readonly Person[],
   currentUserId: PersonId,
+  topicId?: string,
 ) {
   const pool = people.filter((person) => person.id !== currentUserId);
-  const index = mode === DiscussionMatchMode.SAME_POSITION_SAME_REASON
+  if (pool.length === 0) return people[0];
+
+  const modeOffset = mode === DiscussionMatchMode.SAME_POSITION_SAME_REASON
     ? 0
     : mode === DiscussionMatchMode.SAME_POSITION_DIFFERENT_REASON
       ? 1
       : 2;
-  return pool[index % pool.length] ?? pool[0];
+  const generatedTopicParts = topicId?.match(/^topic_ai_(hot|life)_(\d+)_(\d+)$/);
+  const topicOffset = generatedTopicParts
+    ? (Number(generatedTopicParts[2]) * 2) + Number(generatedTopicParts[3]) + (generatedTopicParts[1] === 'life' ? 3 : 0)
+    : topicId
+      ? Array.from(topicId).reduce((hash, character) => ((hash * 31) + character.charCodeAt(0)) >>> 0, 0)
+      : 0;
+  return pool[(topicOffset + modeOffset) % pool.length] ?? pool[0];
 }

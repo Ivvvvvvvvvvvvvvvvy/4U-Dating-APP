@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { AppShell } from './components/AppShell';
 import { JoinConfirmDialog } from './components/ConfirmDialog';
 import { TopicMatchDialog } from './components/TopicMatchDialog';
@@ -91,7 +91,7 @@ export default function App() {
     }
     const existingThread = findActiveTopicDiscussion(topic.id, matchMode, allThreads, currentUser.profile.id);
     const partnerId = existingThread ? counterpartOf(existingThread, currentUser.profile.id) : undefined;
-    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(matchMode, people, currentUser.profile.id);
+    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(matchMode, people, currentUser.profile.id, topic.id);
     setTopicMatch({ topic, partner, matchMode, vote, existingThread, phase: 'searching' });
   }, [allThreads, online, setMessage]);
 
@@ -109,7 +109,7 @@ export default function App() {
       [prepared.thread.id]: current[prepared.thread.id] ?? initialDiscussionRuntime(prepared.thread, topicMatch.vote),
     }));
     setTopicMatch(null);
-    setMessage('已匹配到限时讨论房');
+    setMessage('和他聊一聊吧');
     navigate('/messages/discussion/' + prepared.thread.id, { state: { from: location.pathname + location.search } });
   }, [location.pathname, location.search, navigate, setMessage, topicMatch]);
 
@@ -224,7 +224,6 @@ export default function App() {
   return <>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
     {!online && <OfflineBanner/>}
-    <div className="demo-disclosure"><AlertTriangle size={11}/> 前端合同演示 · 不连接真实用户、推荐、消息或审核服务</div>
     <AppShell active={routeTab(route)} detail={detail} immersive={['chat','create','search'].includes(route.kind)} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
