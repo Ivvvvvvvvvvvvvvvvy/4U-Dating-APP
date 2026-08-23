@@ -10,11 +10,24 @@ const assert = (value, message) => { if (!value) throw new Error(message); };
 
 await page.goto(`${baseUrl}/home?primary=recommend&secondary=for-you`, { waitUntil: 'networkidle' });
 assert(await page.getByRole('navigation', { name: '主导航' }).isVisible(), 'mobile navigation missing');
-assert(await page.locator('[data-card-type]').count() === 8, 'home should render eight contract cards');
-assert(JSON.stringify(await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.slice(0, 4).map((node) => node.dataset.cardType))) === JSON.stringify(['ACTIVITY','PERSON','TOPIC','ACTIVITY']), 'first four card order mismatch');
+assert(await page.locator('[data-card-type]').count() === 10, 'home should render one recommendation page');
+const recommendationCounts = await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.reduce((counts, node) => ({ ...counts, [node.dataset.cardType]: (counts[node.dataset.cardType] ?? 0) + 1 }), {}));
+assert(recommendationCounts.PERSON === 4 && recommendationCounts.ACTIVITY === 3 && recommendationCounts.TOPIC === 3, 'home recommendation ratio must be 4:3:3');
+assert(await page.locator('[data-card-id]').evaluateAll((nodes) => new Set(nodes.map((node) => node.dataset.cardId)).size === nodes.length), 'home recommendation page contains duplicates');
+const firstPageIds = await page.locator('[data-card-id]').evaluateAll((nodes) => nodes.map((node) => node.dataset.cardId));
 await page.locator('[data-card-type="TOPIC"] h2').first().click();
 assert(page.url().includes('/topics/'), 'visible topic title should open detail');
 await page.getByRole('button', { name: '返回' }).click();
+assert(JSON.stringify(await page.locator('[data-card-id]').evaluateAll((nodes) => nodes.map((node) => node.dataset.cardId))) === JSON.stringify(firstPageIds), 'recommendations changed after returning from detail');
+await page.getByRole('button', { name: '加载更多推荐' }).click();
+assert(await page.locator('[data-card-type]').count() === 20, 'load more should append one recommendation page');
+const twoPageCounts = await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.reduce((counts, node) => ({ ...counts, [node.dataset.cardType]: (counts[node.dataset.cardType] ?? 0) + 1 }), {}));
+assert(twoPageCounts.PERSON === 8 && twoPageCounts.ACTIVITY === 6 && twoPageCounts.TOPIC === 6, 'first two recommendation pages must preserve 4:3:3');
+const twoPageIds = await page.locator('[data-card-id]').evaluateAll((nodes) => nodes.map((node) => node.dataset.cardId));
+await page.locator('[data-card-type]').nth(14).locator('.card-main-action').click();
+await page.getByRole('button', { name: '返回' }).click();
+assert(await page.locator('[data-card-type]').count() === 20, 'detail return should preserve loaded recommendation pages');
+assert(JSON.stringify(await page.locator('[data-card-id]').evaluateAll((nodes) => nodes.map((node) => node.dataset.cardId))) === JSON.stringify(twoPageIds), 'loaded recommendations changed after detail return');
 
 await page.getByRole('tab', { name: '活动', exact: true }).click();
 assert(page.url().includes('primary=activities'), 'activity channel should write URL');
@@ -47,7 +60,7 @@ await page.getByRole('searchbox').fill('看展');
 assert(await page.getByRole('heading', { name: '活动' }).isVisible(), 'grouped activity search results missing');
 await page.getByRole('button', { name: '关闭搜索' }).click();
 
-await page.getByRole('button', { name: '消息' }).click();
+await page.locator('.bottom-nav').getByRole('button', { name: /^消息/ }).click();
 await page.getByRole('tab', { name: '通知' }).click();
 assert(await page.getByText('请在 12 小时内确认席位').isVisible(), 'actionable notification missing');
 await page.getByRole('tab', { name: '匹配' }).click();
@@ -79,5 +92,5 @@ assert(await page.getByRole('heading', { name: '内容暂不可用' }).isVisible
 
 assert(errors.length === 0, 'browser errors: ' + errors.join(' | '));
 await page.screenshot({ path: '/tmp/4u-final.png', fullPage: false });
-console.log(JSON.stringify({ ok: true, contractCards: 8, privacyEducation: true, groupedSearch: true, consoleErrors: errors.length }));
+console.log(JSON.stringify({ ok: true, recommendationCards: 20, recommendationRatio: '4:3:3', privacyEducation: true, groupedSearch: true, consoleErrors: errors.length }));
 await browser.close();

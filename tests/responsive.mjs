@@ -21,7 +21,7 @@ for (const width of expectedColumns.keys()) {
   }));
   if (metrics.documentWidth > metrics.viewport) throw new Error(width + 'px viewport overflows to ' + metrics.documentWidth + 'px');
   if (metrics.columns !== expectedColumns.get(width)) throw new Error(width + 'px has ' + metrics.columns + ' columns, expected ' + expectedColumns.get(width));
-  if (metrics.cards !== 8) throw new Error(width + 'px renders ' + metrics.cards + ' cards');
+  if (metrics.cards !== 10) throw new Error(width + 'px renders ' + metrics.cards + ' cards');
   if (width < 768 && metrics.bottomNav === 'none') throw new Error(width + 'px mobile navigation missing');
   if (width >= 768 && metrics.sideNav === 'none') throw new Error(width + 'px desktop navigation missing');
   if (errors.length) throw new Error(width + 'px page errors: ' + errors.join(' | '));
