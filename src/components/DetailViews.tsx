@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Bookmark, CalendarDays, CheckCircle2, Flag, Heart, LockKeyhole, MapPin, ShieldCheck, Sparkles, UsersRound } from 'lucide-react';
 import { ActivityFormat, ActivityRecruitmentStatus, RelationshipGoal, VerificationStatus, type Activity, type ActivityOpportunity, type Person } from '../domain';
 import { findPersonById } from '../mockData';
@@ -6,6 +7,10 @@ import { SafeImage } from './SafeImage';
 
 function DetailTop({ label, onBack, trailing }: { label: string; onBack: () => void; trailing?: React.ReactNode }) {
   return <header className="detail-top"><button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft/></button><span>{label}</span><div>{trailing}</div></header>;
+}
+
+function DetailActionPortal({ children }: { children: React.ReactNode }) {
+  return typeof document === 'undefined' ? null : createPortal(children, document.body);
 }
 
 export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBack, onSave, onJoin }: { activity: Activity; saved: boolean; joining: boolean; joined: boolean; canJoin: boolean; onBack: () => void; onSave: () => void; onJoin: () => void }) {
@@ -24,7 +29,9 @@ export function ActivityDetail({ activity, saved, joining, joined, canJoin, onBa
       <section className="detail-section"><h2>成行与候补</h2><p>申请本身不占座；收到席位并确认后才计入人数。满员后按候补顺序处理。</p><div className="detail-tags">{activity.atmosphereTags.map((tag) => <span key={tag}>{tag}</span>)}</div></section>
       <section className="safety-panel"><ShieldCheck/><div><h2>安全与边界</h2><p>{activity.safetyNotice}</p><button type="button"><Flag size={14}/>举报活动</button></div></section>
     </div>
-    <footer className="sticky-action"><div><strong>{activity.price?.display ?? '免费'}</strong><span>预计人均</span></div><button className="primary-button" disabled={joining || (!canJoin && !joined)} onClick={onJoin}>{joining ? '正在确认最新状态…' : cta}</button></footer>
+    <DetailActionPortal>
+      <footer className="sticky-action" data-detail-action="activity" aria-label="活动参与操作"><div><strong>{activity.price?.display ?? '免费'}</strong><span>预计人均</span></div><button className="primary-button" disabled={joining || (!canJoin && !joined)} onClick={onJoin}>{joining ? '正在确认最新状态…' : cta}</button></footer>
+    </DetailActionPortal>
   </article>;
 }
 
@@ -39,7 +46,9 @@ export function PersonDetail({ person, suggestedActivity, hearted, hearting, onB
       <section className="detail-section"><h2>最近想做的事</h2><p>{person.prompts[0]?.answer ?? '从一件真正喜欢的小事开始。'}</p><button className="linked-event" onClick={() => onOpenActivity(suggestedActivity)}><SafeImage src={suggestedActivity.cover.url} alt="" ratio="1"/><span><small>适合邀请的活动</small><b>{suggestedActivity.title}</b><em>{dateLabel(suggestedActivity)} · {suggestedActivity.publicLocation.district}</em></span></button></section>
       <section className="safety-panel"><LockKeyhole/><div><h2>低压力连接</h2><p>心动不会通知对方。只有双方都表达心动，才会建立一个可发消息的连接。</p><button type="button"><Flag size={14}/>举报或屏蔽</button></div></section>
     </div>
-    <footer className="sticky-action sticky-action--single"><button className={'primary-button heart-cta ' + (hearted ? 'is-active' : '')} disabled={hearting} onClick={onHeart}><Heart fill={hearted ? 'currentColor' : 'none'}/>{hearting ? '正在确认…' : hearted ? '已心动 · 仅你可见' : '心动'}</button></footer>
+    <DetailActionPortal>
+      <footer className="sticky-action sticky-action--single" data-detail-action="person" aria-label="个人心动操作"><button className={'primary-button heart-cta ' + (hearted ? 'is-active' : '')} disabled={hearting} onClick={onHeart}><Heart fill={hearted ? 'currentColor' : 'none'}/>{hearting ? '正在确认…' : hearted ? '已心动 · 仅你可见' : '心动'}</button></footer>
+    </DetailActionPortal>
   </article>;
 }
 
