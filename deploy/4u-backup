@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+umask 077
+backup_dir=${BACKUP_DIR:-/var/backups/4u}
+container=${POSTGRES_CONTAINER:-for-u-production-postgres-1}
+retention_days=${BACKUP_RETENTION_DAYS:-14}
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+target="$backup_dir/for_u-$stamp.dump"
+temporary="$target.tmp.$$"
+
+mkdir -p "$backup_dir"
+trap 'rm -f "$temporary"' EXIT
+docker exec "$container" sh -eu -c 'exec pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$temporary"
+test -s "$temporary"
+mv "$temporary" "$target"
+find "$backup_dir" -type f -name 'for_u-*.dump' -mtime +"$retention_days" -delete
+trap - EXIT

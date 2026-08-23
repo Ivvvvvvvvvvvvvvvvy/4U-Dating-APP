@@ -97,6 +97,7 @@ docker run --rm --env-file /path/to/worker.env for-u-server:release npm run work
 These commands are illustrative for a single host. A production scheduler should run exactly one migration job and supervise long-running API/worker processes. Do not put secret values in an image, Compose file, shell history, CI log, or command line.
 
 For the repository's single-host production topology, use `docker-compose.production.yml` with a root-owned, mode `0600` environment file stored outside Git. It requires JWT/JWKS configuration, exposes the API only on loopback, keeps PostgreSQL off the host network, and uses the checked-in `deploy/nginx-4u.conf` for the same-origin public entry point. The root `docker-compose.yml` remains development-only.
+The `deploy/` directory also contains the systemd unit, short-lived certificate renewal command, cron schedule, and atomic PostgreSQL backup script used by the single-host deployment. Install those files with root ownership rather than invoking them from a writable checkout.
 
 ## Configuration
 

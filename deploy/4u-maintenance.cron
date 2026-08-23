@@ -1,0 +1,2 @@
+17 */4 * * * root /usr/local/sbin/4u-renew-cert >> /var/log/4u-cert-renew.log 2>&1
+27 3 * * * root /usr/local/sbin/4u-backup >> /var/log/4u-backup.log 2>&1

@@ -1,0 +1,17 @@
+[Unit]
+Description=4U production application stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/4u-source
+ExecStart=/usr/bin/docker compose --env-file /etc/4u/production.env -f /opt/4u-source/docker-compose.production.yml up -d api worker
+ExecStop=/usr/bin/docker compose --env-file /etc/4u/production.env -f /opt/4u-source/docker-compose.production.yml stop api worker postgres
+TimeoutStartSec=0
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
