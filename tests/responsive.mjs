@@ -45,5 +45,65 @@ for (const path of appPages) {
   await page.close();
 }
 
+const fixedDetailActions = [
+  { viewport: { width: 390, height: 844 }, mobile: true, route: '/people/person_lan', action: 'person', cta: '心动' },
+  { viewport: { width: 390, height: 844 }, mobile: true, route: '/activities/activity_monet_night', action: 'activity', cta: '申请同行' },
+  { viewport: { width: 1280, height: 900 }, mobile: false, route: '/people/person_lan', action: 'person', cta: '心动' },
+  { viewport: { width: 1280, height: 900 }, mobile: false, route: '/activities/activity_monet_night', action: 'activity', cta: '申请同行' },
+];
+const fixedActionResults = [];
+
+for (const testCase of fixedDetailActions) {
+  const page = await browser.newPage({
+    viewport: testCase.viewport,
+    isMobile: testCase.mobile,
+    hasTouch: testCase.mobile,
+  });
+  await page.goto(baseUrl + testCase.route, { waitUntil: 'networkidle' });
+
+  const rail = page.locator('.detail-rail');
+  const action = page.locator('body > .sticky-action[data-detail-action="' + testCase.action + '"]');
+  if (await rail.count() !== 1) throw new Error(testCase.route + ' detail rail missing or duplicated');
+  if (await action.count() !== 1) throw new Error(testCase.route + ' fixed action missing or not portaled to body');
+  if (await action.getByRole('button', { name: testCase.cta, exact: true }).count() !== 1) {
+    throw new Error(testCase.route + ' expected CTA "' + testCase.cta + '" missing');
+  }
+
+  const before = await action.boundingBox();
+  const railBox = await rail.boundingBox();
+  if (!before || !railBox) throw new Error(testCase.route + ' detail rail or fixed action is not visible');
+  if (Math.abs(before.y + before.height - testCase.viewport.height) > 1) {
+    throw new Error(testCase.route + ' fixed action is not anchored to viewport bottom');
+  }
+  if (Math.abs(before.x - railBox.x) > 1 || Math.abs(before.width - railBox.width) > 1) {
+    throw new Error(testCase.route + ' fixed action is not aligned with detail rail');
+  }
+
+  const scroll = await rail.evaluate(async (element) => {
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    element.scrollTop = scrollHeight;
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    return { scrollHeight, clientHeight, scrollTop: element.scrollTop };
+  });
+  if (scroll.scrollHeight <= scroll.clientHeight || scroll.scrollTop <= 0) {
+    throw new Error(testCase.route + ' detail rail did not actually scroll');
+  }
+
+  const after = await action.boundingBox();
+  if (!after
+    || Math.abs(before.x - after.x) > 1
+    || Math.abs(before.y - after.y) > 1
+    || Math.abs(before.width - after.width) > 1
+    || Math.abs(before.height - after.height) > 1
+    || Math.abs(after.y + after.height - testCase.viewport.height) > 1) {
+    throw new Error(testCase.route + ' fixed action moved while detail rail scrolled');
+  }
+
+  fixedActionResults.push({ route: testCase.route, viewport: testCase.viewport, scrollTop: scroll.scrollTop });
+  await page.close();
+}
+
 await browser.close();
-console.log(JSON.stringify({ ok: true, results, desktopDetail: detailMetrics, mobilePages: appPages.length }));
+console.log(JSON.stringify({ ok: true, results, desktopDetail: detailMetrics, mobilePages: appPages.length, fixedDetailActions: fixedActionResults }));
