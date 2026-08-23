@@ -314,7 +314,7 @@ function LifestyleTopicDetail({
   const liveCount = topicOnlineCount(topic);
   const personal = isPersonalExpression(topic);
   return (
-    <article className="detail-page detail-page--topic" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
+    <article className="detail-page detail-page--topic detail-page--topic-actions" aria-labelledby="topic-detail-title" data-screen-label="话题详情">
       <header className="detail-top">
         <button className="icon-button" onClick={onBack} aria-label="返回"><ArrowLeft /></button>
         <span>{topicGenreLabel(topic)}</span>
@@ -345,11 +345,14 @@ function LifestyleTopicDetail({
           </div>
         </section>
       </div>
-      <footer className="sticky-action sticky-action--single">
-        <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
-          <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
-        </button>
-      </footer>
+      {typeof document !== 'undefined' && createPortal(
+        <footer className="sticky-action sticky-action--single">
+          <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
+            <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
+          </button>
+        </footer>,
+        document.body,
+      )}
     </article>
   );
 }
