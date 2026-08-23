@@ -535,6 +535,7 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
 .chat-safety-note { padding: 8px 12px; display: flex; align-items: center; gap: 7px; color: #d5cef5; background: rgba(139,92,246,.055); font-size: 8px; line-height: 1.45; }
 .transport-status { min-height: 32px; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(34,211,238,.06); color: #9ff8ff; font-size: 9px; }
 .message-stream { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 16px 13px; display: flex; flex-direction: column; gap: 9px; }
+.discussion-inline-note { align-self: center; margin: 2px 0 8px; color: var(--subtle); font-size: 9px; line-height: 1.5; text-align: center; }
 .unlocked-profile-card { width: 100%; padding: 11px; display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 12px; border: 1px solid rgba(232,111,145,.28); border-radius: 18px; background: linear-gradient(145deg,#fff,#fff5f7); box-shadow: var(--shadow-card); }
 .unlocked-profile-card > .safe-image { width: 88px; height: 110px; border-radius: 14px; }
 .unlocked-profile-card > div { min-width: 0; }
