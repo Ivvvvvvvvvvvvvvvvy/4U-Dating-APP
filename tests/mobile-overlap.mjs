@@ -189,9 +189,8 @@ for (const viewport of viewports) {
     await actions.scrollIntoViewIfNeeded();
     const actionBox = await actions.boundingBox();
     if (!actionBox || actionBox.x < -1 || actionBox.x + actionBox.width > viewport.width + 1) fail('stage-two actions overflow');
-    const otherReason = page.locator('.topic-other-reason textarea');
-    if (await otherReason.count() !== 1) fail('stage-two reason input is missing');
-    await page.getByRole('button', { name: '先看结果' }).click();
+    await page.locator('.topic-option').first().click();
+    await page.getByRole('button', { name: '确认', exact: true }).click();
     const entries = page.locator('.topic-match-entry');
     if (await entries.count() !== 3) fail('result match entries are incomplete');
     else {
