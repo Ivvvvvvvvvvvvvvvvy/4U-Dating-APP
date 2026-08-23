@@ -639,7 +639,7 @@ button:focus-visible, [role='link']:focus-visible, input:focus-visible, textarea
   .side-create { width: 48px; height: 48px; margin-top: auto; padding: 0; border: 0; border-radius: 15px; background: linear-gradient(135deg,var(--rose),var(--pink)); display: grid; place-items: center; }
   .side-create span, .side-profile div { display: none; }
   .side-profile { margin-top: 17px; }
-  .side-profile > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg,var(--violet),var(--cyan)); font-size: 10px; font-weight: 800; }
+  .side-profile > .safe-image { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 13px; }
   .bottom-nav, .mobile-brand-bar, .floating-create { display: none; }
   .page { padding-bottom: 30px; }
   .channel-header { top: 0; }
@@ -1146,7 +1146,7 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
   .side-nav nav button.is-active::before { background: var(--rose); box-shadow: none; }
   .side-nav nav button > i { background: var(--rose); }
   .side-create { background: var(--rose); color: #fff; box-shadow: 0 8px 20px rgba(212,83,120,.18); }
-  .side-profile > span { color: #fff; background: linear-gradient(145deg,#df8ca4,#71998d); }
+  .side-profile > .safe-image { background: linear-gradient(145deg,#df8ca4,#71998d); }
   .side-profile small { color: var(--muted); }
   .detail-rail { border-color: var(--line); background: var(--paper); box-shadow: -24px 0 55px rgba(41,37,41,.08); }
   .toast--chat, .toast--detail { bottom: 90px; }

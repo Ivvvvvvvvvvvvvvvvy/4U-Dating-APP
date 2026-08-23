@@ -20,7 +20,7 @@ assert(page.url().includes('/topics/'), 'visible topic title should open detail'
 await page.getByRole('button', { name: '返回' }).click();
 assert(JSON.stringify(await page.locator('[data-card-id]').evaluateAll((nodes) => nodes.map((node) => node.dataset.cardId))) === JSON.stringify(firstPageIds), 'recommendations changed after returning from detail');
 assert(await page.getByRole('button', { name: '加载更多推荐' }).count() === 0, 'recommendations should not require a load-more button');
-await page.locator('.recommendation-feed-sentinel').scrollIntoViewIfNeeded();
+await page.mouse.wheel(0, 100_000);
 await page.waitForFunction(() => document.querySelectorAll('[data-card-type]').length >= 20);
 assert(await page.locator('[data-card-type]').count() === 20, 'load more should append one recommendation page');
 const twoPageCounts = await page.locator('[data-card-type]').evaluateAll((nodes) => nodes.reduce((counts, node) => ({ ...counts, [node.dataset.cardType]: (counts[node.dataset.cardType] ?? 0) + 1 }), {}));

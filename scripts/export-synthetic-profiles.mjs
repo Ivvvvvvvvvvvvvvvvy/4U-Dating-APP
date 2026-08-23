@@ -12,10 +12,12 @@ const server = await createServer({
 });
 
 try {
-  const [profilesModule, schemaModule, publicDataModule] = await Promise.all([
+  const [profilesModule, schemaModule, publicDataModule, portraitModule, mockDataModule] = await Promise.all([
     server.ssrLoadModule('/src/syntheticProfiles.ts'),
     server.ssrLoadModule('/src/profileSchema.ts'),
     server.ssrLoadModule('/src/syntheticPublicData.ts'),
+    server.ssrLoadModule('/src/celebrityPortraits.ts'),
+    server.ssrLoadModule('/src/mockData.ts'),
   ]);
 
   const exportedSchemaConstants = Object.fromEntries(
@@ -103,6 +105,10 @@ try {
     publicFixturePeople: publicDataModule.syntheticPeople,
     publicFixtureCards: publicDataModule.syntheticPersonFeedCards,
     syntheticCoverageReport: profilesModule.syntheticCoverageReport,
+    celebrityPortraitsByGender: portraitModule.CELEBRITY_PORTRAITS_BY_GENDER,
+    candidateCelebrityPortraits: portraitModule.ALL_CANDIDATE_CELEBRITY_PORTRAITS,
+    currentUserCelebrityPortrait: portraitModule.CURRENT_USER_CELEBRITY_PORTRAIT,
+    currentUser: mockDataModule.currentUser,
     publicProfileProjections,
     schemaValidationResults,
     schemaMutualCandidateIds,

@@ -1,4 +1,6 @@
 import { Bell, Compass, Home, MessageCircle, Plus, Search, UserRound } from 'lucide-react';
+import type { Person } from '../domain';
+import { SafeImage } from './SafeImage';
 
 export type NavTab = 'home' | 'discover' | 'messages' | 'me';
 
@@ -13,7 +15,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return <div className={'brand' + (compact ? ' brand--compact' : '')} aria-label="for U"><strong>for</strong><span>U</span><i /></div>;
 }
 
-export function SideNav({ active, inactive = false, onNavigate, onCreate }: { active: NavTab; inactive?: boolean; onNavigate: (path: string) => void; onCreate: () => void }) {
+export function SideNav({ active, inactive = false, viewer, onNavigate, onCreate }: { active: NavTab; inactive?: boolean; viewer: Pick<Person, 'displayName' | 'photos'>; onNavigate: (path: string) => void; onCreate: () => void }) {
   return (
     <aside className="side-nav" aria-label="主导航" inert={inactive ? true : undefined} aria-hidden={inactive ? true : undefined}>
       <Brand />
@@ -25,7 +27,7 @@ export function SideNav({ active, inactive = false, onNavigate, onCreate }: { ac
         ))}
       </nav>
       <button className="side-create" type="button" onClick={onCreate}><Plus size={20} /><span>发起活动</span></button>
-      <div className="side-profile"><span>LC</span><div><b>林川</b><small>真人已认证</small></div></div>
+      <div className="side-profile"><SafeImage src={viewer.photos[0].url} alt={viewer.photos[0].alt} ratio="1" fallbackLabel="头像"/><div><b>{viewer.displayName}</b><small>体验账号</small></div></div>
     </aside>
   );
 }
