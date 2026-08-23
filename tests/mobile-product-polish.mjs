@@ -70,6 +70,12 @@ for (const route of [
 const flow = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 await flow.goto(`${baseUrl}/people/person_muye`, { waitUntil: 'networkidle' });
 assert(await flow.getByRole('button', { name: '发起对话' }).count() === 0, 'ordinary public profile must not expose direct conversation');
+await flow.evaluate(() => {
+  history.pushState({ __key: 'forged-activity-state', activityId: 'activity_wutong_city_walk', canStartConversation: true }, '', '/people/person_muye');
+  dispatchEvent(new PopStateEvent('popstate'));
+});
+await flow.waitForTimeout(200);
+assert(await flow.getByRole('button', { name: '发起对话' }).count() === 0, 'non-participant gained messaging through forged activity state');
 await flow.goto(`${baseUrl}/activities/activity_wutong_city_walk`, { waitUntil: 'networkidle' });
 await flow.getByRole('button', { name: '查看参与者：宁宁' }).click();
 assert(flow.url().includes('/people/person_ning'), 'participant avatar did not open the person profile');

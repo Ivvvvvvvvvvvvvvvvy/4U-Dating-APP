@@ -264,7 +264,8 @@ export default function App() {
   }, [allThreads, blockedPeople, location.pathname, location.search, navigate, setMessage]);
 
   const startActivityParticipantConversation = useCallback((activity: Activity, person: Person) => {
-    if (!conversationEligibleActivityIds.has(activity.id)) {
+    const isVisibleParticipant = activity.visibleParticipants.some((participant) => participant.personId === person.id);
+    if (!conversationEligibleActivityIds.has(activity.id) || !isVisibleParticipant) {
       setMessage('确认参加同一活动后才可发起对话');
       return;
     }
@@ -343,7 +344,10 @@ export default function App() {
     const person = findPersonById(route.id as never);
     const hasConversation = person && allThreads.some((thread) => thread.kind === ThreadKind.MATCH && thread.participantIds.includes(person.id) && thread.participantIds.includes(currentUser.profile.id));
     const sourceActivity = typeof location.state.activityId === 'string' ? findActivityById(location.state.activityId as never) : undefined;
-    const canStartFromActivity = Boolean(sourceActivity && location.state.canStartConversation === true && conversationEligibleActivityIds.has(sourceActivity.id));
+    const canStartFromActivity = Boolean(sourceActivity
+      && location.state.canStartConversation === true
+      && conversationEligibleActivityIds.has(sourceActivity.id)
+      && sourceActivity.visibleParticipants.some((participant) => participant.personId === person?.id));
     if (person) detail = <PersonDetail person={person} suggestedActivity={activities[0]} hearted={heartedPeople.has(person.id)} hearting={pending?.key === 'person:' + person.id} onBack={routeBack} onHeart={() => heartPerson(person)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})} onStartConversation={person.id !== currentUser.profile.id && (canStartFromActivity || hasConversation) ? () => sourceActivity && canStartFromActivity ? startActivityParticipantConversation(sourceActivity, person) : startConversation(person) : undefined}/>;
   } else if (route.kind === 'topic') {
     const topic = findGeneratedTopicById(route.id as never) ?? findTopicById(route.id as never);
