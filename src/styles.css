@@ -838,8 +838,7 @@ body, .app-shell, .app-main, .page, .detail-page { color: var(--text); backgroun
 .topic-feed-grid .topic-pulse i:nth-child(2) { left: 12px; bottom: 12px; }
 .topic-feed-grid .topic-pulse i:nth-child(3) { display: none; }
 .topic-feed-sentinel { min-height: 84px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
-.recommendation-feed-more { min-height: 84px; display: grid; place-items: center; }
-.recommendation-feed-more .secondary-button { min-width: 148px; }
+.recommendation-feed-sentinel { min-height: 84px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
 .topic-top > span { color: var(--pink); }
 .topic-follow, .follow-button { border-color: var(--line-strong); background: rgba(255,255,255,.8); }
 .topic-follow.is-active, .follow-button.is-active { color: #54766c; border-color: rgba(110,144,133,.38); background: var(--sage-soft); }

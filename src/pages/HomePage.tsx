@@ -235,6 +235,7 @@ export function HomePage({
   const [loadingMoreTopics, setLoadingMoreTopics] = useState(false);
   const loadingMoreRef = useRef(false);
   const topicSentinelRef = useRef<HTMLDivElement>(null);
+  const recommendationSentinelRef = useRef<HTMLDivElement>(null);
   const isTopicFeed = primary === 'topics';
   const isRecommendationFeed = primary === 'recommend';
   const routeCards = cardsForRoute(primary, secondary, cardActions, recommendationCards);
@@ -246,6 +247,16 @@ export function HomePage({
   const hasMoreRecommendations = isRecommendationFeed && visibleCards.length < routeCards.length;
   const lead = leadByPrimary[primary];
   useEffect(() => { localStorage.setItem('4u:rfc:home-secondary:' + primary, secondary); }, [primary, secondary]);
+
+  const loadMoreRecommendations = useCallback(() => {
+    setRecommendationPage((current) => ({
+      key: recommendationRouteKey,
+      count: Math.min(
+        (current.key === recommendationRouteKey ? current.count : RECOMMENDATION_PAGE_SIZE) + RECOMMENDATION_PAGE_SIZE,
+        routeCards.length,
+      ),
+    }));
+  }, [recommendationRouteKey, routeCards.length]);
 
   const loadMoreTopics = useCallback(() => {
     if (loadingMoreRef.current) return;
@@ -266,6 +277,16 @@ export function HomePage({
     observer.observe(topicSentinelRef.current);
     return () => observer.disconnect();
   }, [isTopicFeed, loadMoreTopics]);
+
+  useEffect(() => {
+    const sentinel = recommendationSentinelRef.current;
+    if (!hasMoreRecommendations || !sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (window.scrollY > 0 && entries.some((entry) => entry.isIntersecting)) loadMoreRecommendations();
+    }, { rootMargin: '240px 0px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreRecommendations, loadMoreRecommendations]);
 
   const navigatePrimary = (nextPrimary: HomePrimary) => {
     if (nextPrimary === primary) { window.scrollTo({ top: 0, behavior: 'smooth' }); onRetry(); return; }
@@ -339,7 +360,7 @@ export function HomePage({
         {!loading && !error && !empty && visibleCards.length > 0 && (isTopicFeed
           ? <div ref={topicSentinelRef} className="topic-feed-sentinel" role="status"><span>{loadingMoreTopics ? '正在加载更多话题…' : '继续下滑，发现更多话题'}</span></div>
           : hasMoreRecommendations
-            ? <div className="recommendation-feed-more"><button type="button" className="secondary-button" onClick={() => setRecommendationPage({ key: recommendationRouteKey, count: Math.min(visibleRecommendationCount + RECOMMENDATION_PAGE_SIZE, routeCards.length) })}>加载更多推荐</button></div>
+            ? <div ref={recommendationSentinelRef} className="recommendation-feed-sentinel" role="status"><span>继续上滑，发现更多推荐</span></div>
             : <EndOfFeed />)}
         {isRecommendationFeed && <p className="sr-only" aria-live="polite">已显示 {visibleCards.length} 条推荐，共 {routeCards.length} 条</p>}
       </div>
