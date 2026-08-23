@@ -1,26 +1,26 @@
 <div align="center">
 
-# for U · 4U
+# for U
 
 ### 从共同兴趣、一场活动和一次真诚对话开始认识彼此
 
-4U 是一款面向成年用户的社交发现产品原型。
+for U 是一款面向成年用户的社交发现产品原型。
 
 在这里，你不必只凭一张照片做决定：可以先了解共同兴趣，加入一场具体活动，或从一个真正想聊的话题开始。
 
-[立即体验 4U](https://happyeye1.github.io/4U/)
+[立即体验 for U](https://happyeye1.github.io/4U/)
 
 </div>
 
 <p align="center">
   <a href="https://happyeye1.github.io/4U/">
-    <img width="390" src="./docs/assets/readme/home-mobile.jpg" alt="4U 手机端人物、活动与话题综合推荐页" />
+    <img width="390" src="./docs/assets/readme/home-mobile.jpg" alt="for U 手机端人物、活动与话题综合推荐页" />
   </a>
 </p>
 
 ## 认识，不止一种方式
 
-4U 把人物、活动和话题放在同一条探索路径中。先找到共同点，再决定要不要继续靠近。
+for U 把人物、活动和话题放在同一条探索路径中。先找到共同点，再决定要不要继续靠近。
 
 <table>
   <tr>
@@ -39,9 +39,9 @@
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="./docs/assets/readme/onboarding-mobile.jpg"><img width="260" src="./docs/assets/readme/onboarding-mobile.jpg" alt="4U 首次建档与隐私说明" /></a></td>
-    <td width="33%" align="center"><a href="./docs/assets/readme/messages-mobile.jpg"><img width="260" src="./docs/assets/readme/messages-mobile.jpg" alt="4U 消息与连接中心" /></a></td>
-    <td width="33%" align="center"><a href="./docs/assets/readme/create-activity-mobile.jpg"><img width="260" src="./docs/assets/readme/create-activity-mobile.jpg" alt="4U 发起活动流程" /></a></td>
+    <td width="33%" align="center"><a href="./docs/assets/readme/onboarding-mobile.jpg"><img width="260" src="./docs/assets/readme/onboarding-mobile.jpg" alt="for U 首次建档与隐私说明" /></a></td>
+    <td width="33%" align="center"><a href="./docs/assets/readme/messages-mobile.jpg"><img width="260" src="./docs/assets/readme/messages-mobile.jpg" alt="for U 消息与连接中心" /></a></td>
+    <td width="33%" align="center"><a href="./docs/assets/readme/create-activity-mobile.jpg"><img width="260" src="./docs/assets/readme/create-activity-mobile.jpg" alt="for U 发起活动流程" /></a></td>
   </tr>
   <tr>
     <td align="center"><strong>先了解，再建档</strong><br />可以先浏览公开内容，也可以用约 3～5 分钟逐步建立资料。</td>
@@ -110,7 +110,7 @@
 
 你可以实际操作浏览、筛选、搜索、收藏、心动、投票、评论、表单和页面内消息；人物资料、活动、话题、在线人数、匹配对象、消息状态、审核结果和通知均为演示内容，不会连接真实用户，也不会产生真实报名、聊天或安全处置。
 
-人物昵称、年龄、职业、兴趣和经历均为虚构。演示头像来自公开图片素材，仅用于界面效果展示，不代表图片中的人物注册、使用或认可 4U。
+人物昵称、年龄、职业、兴趣和经历均为虚构。演示头像来自公开图片素材，仅用于界面效果展示，不代表图片中的人物注册、使用或认可 for U。
 
 ---
 
