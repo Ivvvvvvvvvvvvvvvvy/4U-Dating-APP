@@ -23,6 +23,15 @@ import { SafeImage } from '../components/SafeImage';
 export type ChatTransport = 'WS' | 'SSE' | 'POLLING';
 export type ChatConnectionPhase = 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE';
 export type DiscussionEndReason = 'PROFILE_PREFERENCE' | 'RELATIONSHIP_PACE' | 'LIFESTYLE' | 'VALUES_BOUNDARIES' | 'COMMUNICATION_STYLE' | 'TOPIC_RELEVANCE';
+export type ChatReportReason = 'HARASSMENT' | 'FRAUD' | 'SEXUAL_CONTENT' | 'HATE_OR_THREAT' | 'PRIVACY' | 'OTHER';
+export type ChatReportSubject = { readonly type: 'THREAD' } | { readonly type: 'PERSON'; readonly personId: PersonId };
+export interface ChatReportRequest {
+  readonly threadId: ThreadId;
+  readonly subject: ChatReportSubject;
+  readonly reason: ChatReportReason;
+  readonly detail: string;
+  readonly blockAfterReport: boolean;
+}
 
 const discussionEndReasons: readonly { value: DiscussionEndReason; label: string; hint: string }[] = [
   { value: 'PROFILE_PREFERENCE', label: '基本条件不符合偏好', hint: '年龄、城市、职业或外形等' },
@@ -31,6 +40,15 @@ const discussionEndReasons: readonly { value: DiscussionEndReason; label: string
   { value: 'VALUES_BOUNDARIES', label: '价值观或关系边界不合适', hint: '家庭、金钱、忠诚或异性交往等' },
   { value: 'COMMUNICATION_STYLE', label: '聊天方式不合拍', hint: '主动程度、回复节奏或表达方式' },
   { value: 'TOPIC_RELEVANCE', label: '这个话题没帮助我了解对方', hint: '本次话题与互动体验不够相关' },
+];
+
+const chatReportReasons: readonly { value: ChatReportReason; label: string; hint: string }[] = [
+  { value: 'HARASSMENT', label: '骚扰或持续冒犯', hint: '反复联系、辱骂、施压或让你感到不适' },
+  { value: 'FRAUD', label: '疑似诈骗或虚假身份', hint: '诱导转账、虚构经历、营销或导流' },
+  { value: 'SEXUAL_CONTENT', label: '不当性内容', hint: '未经同意发送露骨内容或提出性要求' },
+  { value: 'HATE_OR_THREAT', label: '仇恨、威胁或暴力', hint: '歧视性表达、人身威胁或暴力暗示' },
+  { value: 'PRIVACY', label: '泄露隐私或跟踪', hint: '索要、传播私人信息或线下跟踪' },
+  { value: 'OTHER', label: '其他安全问题', hint: '请在补充说明中描述具体情况' },
 ];
 
 export interface ChatConnectionState {
@@ -59,6 +77,10 @@ export interface ChatPageProps {
   readonly connection: ChatConnectionState;
   readonly onBack: () => void;
   readonly onSend: (request: SendMessageRequest) => void | Promise<void>;
+  readonly onContinue: () => void;
+  readonly onFinish: () => void;
+  readonly onReport: (request: ChatReportRequest) => void;
+  readonly conversationEnded?: boolean;
   readonly onOpenContext?: (thread: Thread) => void;
   readonly discussionRoom?: {
     readonly topic: Topic;
@@ -66,9 +88,7 @@ export interface ChatPageProps {
     readonly partner?: Person;
     readonly onNextPrompt: (prompt: Pick<StructuredPromptMessage, 'promptStage' | 'text'>) => void;
     readonly onContinue: () => void;
-    readonly onFinish: () => void;
     readonly onLeave: () => void;
-    readonly onReport: () => void;
   };
 }
 
@@ -81,6 +101,10 @@ export function ChatPage({
   connection,
   onBack,
   onSend,
+  onContinue,
+  onFinish,
+  onReport,
+  conversationEnded = false,
   onOpenContext,
   discussionRoom,
 }: ChatPageProps) {
@@ -90,6 +114,13 @@ export function ChatPage({
   const [finishSurveyOpen, setFinishSurveyOpen] = useState(false);
   const [finishReasons, setFinishReasons] = useState<DiscussionEndReason[]>([]);
   const [finishNote, setFinishNote] = useState('');
+  const [continued, setContinued] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ChatReportReason | null>(null);
+  const [reportSubject, setReportSubject] = useState<ChatReportSubject | null>(null);
+  const [reportDetail, setReportDetail] = useState('');
+  const [blockAfterReport, setBlockAfterReport] = useState(true);
+  const [reportReview, setReportReview] = useState(false);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -109,7 +140,7 @@ export function ChatPage({
       MessageKind.ICEBREAKER_SUGGESTION,
     ].includes(message.kind))
     : orderedMessages, [discussionRoom, orderedMessages]);
-  const ended = Boolean(discussionRoom && [
+  const ended = conversationEnded || Boolean(discussionRoom && [
     DiscussionContinueDecision.FINISH,
     DiscussionContinueDecision.LEFT_TEMPORARILY,
     DiscussionContinueDecision.REPORTED,
@@ -117,6 +148,48 @@ export function ChatPage({
   ].includes(discussionRoom.runtime.myDecision));
   const canSend = thread.allowedActions.includes(ThreadAction.SEND_MESSAGE) && !ended;
   const isOffline = connection.phase === 'OFFLINE';
+  const reportablePeople = thread.participantIds
+    .filter((personId) => personId !== currentUserId)
+    .flatMap((personId) => {
+      const person = people.find((item) => item.id === personId);
+      return person ? [person] : [];
+    });
+  const canReport = thread.allowedActions.includes(ThreadAction.REPORT);
+  const canFinish = thread.kind === ThreadKind.MATCH
+    ? thread.allowedActions.includes(ThreadAction.UNMATCH)
+    : thread.allowedActions.includes(ThreadAction.LEAVE);
+  const continueSelected = continued || discussionRoom?.runtime.unlocked || discussionRoom?.runtime.myDecision === DiscussionContinueDecision.CONTINUE;
+  const continueConversation = () => {
+    if (discussionRoom) discussionRoom.onContinue();
+    else onContinue();
+    setContinued(true);
+  };
+  const finishConversation = () => {
+    onFinish();
+  };
+  const closeReport = () => {
+    setReportOpen(false);
+    setReportReview(false);
+    setReportReason(null);
+    setReportSubject(null);
+    setReportDetail('');
+    setBlockAfterReport(true);
+  };
+  const submitReport = () => {
+    if (!reportReason || !reportSubject) return;
+    const request = { threadId: thread.id, subject: reportSubject, reason: reportReason, detail: reportDetail.trim(), blockAfterReport };
+    localStorage.setItem(`4u:rfc:chat-report:${thread.id}:${Date.now()}`, JSON.stringify({
+      ...request,
+      createdAt: new Date().toISOString(),
+    }));
+    closeReport();
+    onReport(request);
+  };
+  const openReport = () => {
+    const defaultPerson = thread.kind === ThreadKind.ACTIVITY ? undefined : reportablePeople[0];
+    setReportSubject(defaultPerson ? { type: 'PERSON', personId: defaultPerson.id } : null);
+    setReportOpen(true);
+  };
   const trimmedDraft = draft.trim();
   const submit = async () => {
     if (!trimmedDraft || submitting || !canSend || isOffline) return;
@@ -182,14 +255,14 @@ export function ChatPage({
       </main>
 
       <footer className="chat-composer">
-        {discussionRoom && !ended && (
+        {!ended && (
           <div className="discussion-tools">
             <div className="discussion-end-actions">
-              <button type="button" className="primary-button" disabled={discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE} onClick={discussionRoom.onContinue}>
-                {discussionRoom.runtime.unlocked ? '已继续认识' : discussionRoom.runtime.myDecision === DiscussionContinueDecision.CONTINUE ? '已选择继续' : '继续认识'}
+              <button type="button" className="primary-button" disabled={continueSelected || !canSend} onClick={continueConversation}>
+                {continueSelected ? '已选择继续' : '继续认识'}
               </button>
-              <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(true)}>结束讨论</button>
-              <button type="button" className="text-button" onClick={discussionRoom.onReport}>举报</button>
+              <button type="button" className="text-button" disabled={!canFinish} onClick={() => setFinishSurveyOpen(true)}>结束讨论</button>
+              <button type="button" className="text-button report-action" disabled={!canReport} onClick={openReport}>举报</button>
             </div>
           </div>
         )}
@@ -220,7 +293,7 @@ export function ChatPage({
           </button>
         </div>
       </footer>
-      {discussionRoom && finishSurveyOpen && (
+      {finishSurveyOpen && (
         <Modal title="为什么结束这次讨论？" onClose={() => setFinishSurveyOpen(false)}>
           <p className="finish-survey-intro">选择最主要的原因（最多 3 项）。反馈不会展示给对方，会用于优化下一次匹配的人选和话题。</p>
           <div className="finish-survey-options" role="group" aria-label="结束讨论的原因">
@@ -258,16 +331,38 @@ export function ChatPage({
             onClick={() => {
               if (!finishReasons.length && !finishNote.trim()) return;
               localStorage.setItem(`4u:rfc:discussion-feedback:${thread.id}`, JSON.stringify({
-                topicId: discussionRoom.topic.id,
-                partnerId: discussionRoom.partner?.id,
+                topicId: discussionRoom?.topic.id,
+                partnerId: discussionRoom?.partner?.id,
                 reasons: finishReasons,
                 note: finishNote.trim(),
                 createdAt: new Date().toISOString(),
               }));
-              discussionRoom.onFinish();
+              finishConversation();
             }}
           >提交并结束讨论</button>
           <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(false)}>继续聊聊</button>
+        </Modal>
+      )}
+      {reportOpen && (
+        <Modal title={reportReview ? '确认提交举报？' : '举报这次会话'} onClose={closeReport} className="report-dialog">
+          {!reportReview ? <>
+            <p className="finish-survey-intro">请选择最符合的安全问题。举报内容不会展示给对方，紧急危险请优先联系当地警方。</p>
+            <div className="report-subject-options" role="radiogroup" aria-label="举报对象">
+              {thread.kind === ThreadKind.ACTIVITY && <button type="button" role="radio" aria-checked={reportSubject?.type === 'THREAD'} className={reportSubject?.type === 'THREAD' ? 'is-selected' : ''} onClick={() => setReportSubject({ type: 'THREAD' })}>整个活动会话</button>}
+              {reportablePeople.map((person) => <button key={person.id} type="button" role="radio" aria-checked={reportSubject?.type === 'PERSON' && reportSubject.personId === person.id} className={reportSubject?.type === 'PERSON' && reportSubject.personId === person.id ? 'is-selected' : ''} onClick={() => setReportSubject({ type: 'PERSON', personId: person.id })}>成员：{person.displayName}</button>)}
+            </div>
+            <div className="report-reason-options" role="radiogroup" aria-label="举报原因">
+              {chatReportReasons.map((reason) => <button key={reason.value} type="button" role="radio" aria-checked={reportReason === reason.value} className={reportReason === reason.value ? 'is-selected' : ''} onClick={() => setReportReason(reason.value)}><i aria-hidden="true"/><span><strong>{reason.label}</strong><small>{reason.hint}</small></span></button>)}
+            </div>
+            <label className="finish-survey-note"><span>补充说明</span><textarea value={reportDetail} maxLength={300} rows={3} placeholder="请描述发生了什么；无需填写身份证、电话等敏感信息" onChange={(event) => setReportDetail(event.target.value)}/><small>{reportDetail.length}/300 · 选填</small></label>
+            <label className="report-block-option"><input type="checkbox" checked={blockAfterReport} onChange={(event) => setBlockAfterReport(event.target.checked)}/><span><strong>{reportSubject?.type === 'THREAD' ? '举报后同时退出活动会话' : '举报后同时停止接收该成员消息'}</strong><small>之后可在安全设置中管理</small></span></label>
+            <button type="button" className="primary-button" disabled={!reportReason || !reportSubject} onClick={() => setReportReview(true)}>下一步</button>
+            <button type="button" className="text-button" onClick={closeReport}>取消</button>
+          </> : <>
+            <section className="report-review"><ShieldCheck/><div><strong>{chatReportReasons.find((item) => item.value === reportReason)?.label}</strong><p>{reportDetail.trim() || '未填写补充说明'}</p><small>{blockAfterReport ? '提交后将停止接收对方消息' : '提交后仍可接收对方消息'}</small></div></section>
+            <button type="button" className="primary-button" onClick={submitReport}>确认举报并结束会话</button>
+            <button type="button" className="text-button" onClick={() => setReportReview(false)}>返回修改</button>
+          </>}
         </Modal>
       )}
     </section>

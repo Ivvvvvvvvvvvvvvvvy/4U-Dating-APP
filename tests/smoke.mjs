@@ -47,7 +47,8 @@ await page.getByRole('button', { name: '心动', exact: true }).first().click();
 assert(await page.getByRole('dialog', { name: '心动只属于你' }).isVisible(), 'one-time heart privacy education missing');
 await page.getByRole('button', { name: '知道了，继续心动' }).click();
 await page.waitForTimeout(450);
-assert(await page.getByText('已心动，仅你可见').isVisible(), 'private heart result missing');
+assert(await page.getByText('已喜欢，仅你可见').isVisible(), 'private like result missing');
+assert(await page.getByRole('button', { name: '取消喜欢' }).first().getByText('已喜欢').isVisible(), 'liked button label missing');
 
 await page.getByRole('button', { name: /查看个人：/ }).first().click();
 assert(page.url().includes('/people/'), 'person detail URL missing');

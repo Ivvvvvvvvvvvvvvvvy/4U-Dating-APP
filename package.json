@@ -13,6 +13,7 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:responsive": "node tests/responsive.mjs",
     "test:mobile-overlap": "node tests/mobile-overlap.mjs",
+    "test:mobile-product": "node tests/mobile-product-polish.mjs",
     "test:contracts": "node tests/contracts.mjs",
     "test:activities": "node tests/activity-fixtures.mjs",
     "test:profile-avatars": "node tests/profile-avatars.mjs",

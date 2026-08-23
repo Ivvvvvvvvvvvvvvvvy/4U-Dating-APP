@@ -46,9 +46,9 @@ for (const path of appPages) {
 }
 
 const fixedDetailActions = [
-  { viewport: { width: 390, height: 844 }, mobile: true, route: '/people/person_lan', action: 'person', cta: '心动' },
+  { viewport: { width: 390, height: 844 }, mobile: true, route: '/people/person_lan', action: 'person', cta: '喜欢' },
   { viewport: { width: 390, height: 844 }, mobile: true, route: '/activities/activity_monet_night', action: 'activity', cta: '申请同行' },
-  { viewport: { width: 1280, height: 900 }, mobile: false, route: '/people/person_lan', action: 'person', cta: '心动' },
+  { viewport: { width: 1280, height: 900 }, mobile: false, route: '/people/person_lan', action: 'person', cta: '喜欢' },
   { viewport: { width: 1280, height: 900 }, mobile: false, route: '/activities/activity_monet_night', action: 'activity', cta: '申请同行' },
 ];
 const fixedActionResults = [];

@@ -9,7 +9,7 @@ import { TopicDetail } from './components/TopicDetail';
 import { Modal } from './components/Modal';
 import { OfflineBanner } from './components/StatusUI';
 import { DemoActionError, runDemoMutation } from './actionController';
-import { DiscussionContinueDecision, DiscussionMatchMode, FeedAction, FeedCardType, MessageKind, ParticipationMode, ThreadKind, type Activity, type FeedCard, type Message, type Person, type Thread, type Topic, type TopicVoteRecord } from './domain';
+import { ConversationStatus, DiscussionContinueDecision, DiscussionMatchMode, FeedAction, FeedCardType, MatchStatus, MessageDeliveryStatus, MessageKind, ParticipationMode, ThreadAction, ThreadKind, type Activity, type FeedCard, type Message, type Person, type Thread, type Topic, type TopicVoteRecord } from './domain';
 import { activities, activityApplications, activityFeed, currentUser, findActivityById, findActivityOpportunityById, findPersonById, findTopicById, getMessagesForThread, messages, people, resolveFeedCardEntity, threads, topics } from './mockData';
 import { counterpartOf, createTopicDiscussion, findActiveTopicDiscussion, initialDiscussionRuntime, type DiscussionRuntime, type TopicMatchSession } from './topicMatch';
 import { pickPartnerForMode, useTopicVotes } from './topicVote';
@@ -44,6 +44,8 @@ export default function App() {
   const { values: heartedPeople, toggle: toggleHeart } = usePersistentSet('4u:rfc:hearted-people');
   const { values: followedTopics, toggle: toggleTopic } = usePersistentSet('4u:rfc:followed-topics');
   const { values: joinedActivities, toggle: toggleJoined } = usePersistentSet('4u:rfc:joined-activities');
+  const { values: endedThreads, setValues: setEndedThreads } = usePersistentSet('4u:rfc:ended-threads');
+  const { values: blockedPeople, setValues: setBlockedPeople } = usePersistentSet('4u:rfc:blocked-people');
   const [message, setMessage] = useTransientMessage();
   const [pending, setPending] = useState<PendingAction>(null);
   const [heartEducation, setHeartEducation] = useState<Person | null>(null);
@@ -63,6 +65,9 @@ export default function App() {
   const loadedDraftId = useRef(initialDraftId);
   const scrollPositions = useRef(new Map<string, number>());
   const knownApplicationIds = useMemo<Set<string>>(() => new Set(activityApplications.map((item) => item.activityId)), []);
+  const conversationEligibleActivityIds = useMemo<Set<string>>(() => new Set(activityApplications
+    .filter((item) => item.semantics.canAccessRoom)
+    .map((item) => item.activityId)), []);
   const seenHeartEducation = useRef(localStorage.getItem('4u:rfc:heart-education') === 'seen');
   const listRoute = ['home','discover','messages','me'].includes(route.kind);
   useScrollMemory(location.pathname + location.search, listRoute, typeof location.state.restoreScrollY === 'number' ? location.state.restoreScrollY : undefined);
@@ -193,7 +198,7 @@ export default function App() {
   const heartPerson = useCallback((person: Person) => {
     if (!heartedPeople.has(person.id) && !seenHeartEducation.current) { setHeartEducation(person); return; }
     const willHeart = !heartedPeople.has(person.id);
-    void mutate('person:' + person.id, person.entityVersion, true, () => toggleHeart(person.id), willHeart ? '已心动，仅你可见' : '已撤回心动');
+    void mutate('person:' + person.id, person.entityVersion, true, () => toggleHeart(person.id), willHeart ? '已喜欢，仅你可见' : '已取消喜欢');
   }, [heartedPeople, mutate, toggleHeart]);
 
   const confirmHeart = useCallback(() => {
@@ -202,13 +207,69 @@ export default function App() {
     seenHeartEducation.current = true;
     localStorage.setItem('4u:rfc:heart-education', 'seen');
     setHeartEducation(null);
-    void mutate('person:' + person.id, person.entityVersion, true, () => toggleHeart(person.id), '已心动，仅你可见');
+    void mutate('person:' + person.id, person.entityVersion, true, () => toggleHeart(person.id), '已喜欢，仅你可见');
   }, [heartEducation, mutate, toggleHeart]);
 
   const followTopic = useCallback((topic: Topic) => {
     const willFollow = !followedTopics.has(topic.id);
     void mutate('topic:' + topic.id, topic.entityVersion, false, () => toggleTopic(topic.id), willFollow ? '已关注话题' : '已取消关注');
   }, [followedTopics, mutate, toggleTopic]);
+
+  const startConversation = useCallback((person: Person) => {
+    if (blockedPeople.has(person.id)) {
+      setMessage('你已停止接收该成员的消息，可在安全设置中管理');
+      return;
+    }
+    const existing = allThreads.find((thread) => thread.kind === ThreadKind.MATCH
+      && thread.participantIds.includes(currentUser.profile.id)
+      && thread.participantIds.includes(person.id));
+    if (existing) {
+      navigate('/messages/match/' + existing.id, { state: { from: location.pathname + location.search } });
+      return;
+    }
+
+    const token = randomId().replaceAll('-', '');
+    const threadId = ('thread_direct_' + token) as never;
+    const messageId = ('message_direct_' + token) as never;
+    const now = new Date().toISOString() as never;
+    const nextThread: Thread = {
+      id: threadId,
+      entityVersion: 1,
+      kind: ThreadKind.MATCH,
+      title: person.displayName,
+      participantIds: [currentUser.profile.id, person.id],
+      messageIds: [messageId],
+      createdAt: now,
+      updatedAt: now,
+      unreadCount: 0,
+      allowedActions: [ThreadAction.SEND_MESSAGE, ThreadAction.VIEW_PROFILE, ThreadAction.UNMATCH, ThreadAction.BLOCK, ThreadAction.REPORT],
+      matchId: ('match_direct_' + token) as never,
+      matchStatus: MatchStatus.ACTIVE,
+      conversationStatus: ConversationStatus.READY,
+    };
+    const nextMessage: Message = {
+      id: messageId,
+      threadId,
+      kind: MessageKind.SYSTEM,
+      senderId: null,
+      event: 'THREAD_OPENED',
+      text: `你已向${person.displayName}发起对话。是否回复由对方决定，请尊重彼此边界。`,
+      createdAt: now,
+      deliveryStatus: MessageDeliveryStatus.SENT,
+    };
+    setCreatedThreads((items) => [...items, nextThread]);
+    setCreatedMessages((items) => [...items, nextMessage]);
+    setMessage('对话已创建');
+    navigate('/messages/match/' + threadId, { state: { from: location.pathname + location.search } });
+  }, [allThreads, blockedPeople, location.pathname, location.search, navigate, setMessage]);
+
+  const startActivityParticipantConversation = useCallback((activity: Activity, person: Person) => {
+    if (!conversationEligibleActivityIds.has(activity.id)) {
+      setMessage('确认参加同一活动后才可发起对话');
+      return;
+    }
+    startConversation(person);
+  }, [conversationEligibleActivityIds, setMessage, startConversation]);
 
   const cardActions: CardActions = useMemo(() => ({
     savedActivities, heartedPeople, followedTopics,
@@ -264,7 +325,8 @@ export default function App() {
     const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? (findGeneratedTopicById(thread.topicId) ?? findTopicById(thread.topicId)) : undefined;
     const runtime = thread && (discussionRuntimes[thread.id] ?? (thread.kind === ThreadKind.TOPIC_DISCUSSION ? initialDiscussionRuntime(thread, topicVotes[thread.topicId]) : undefined));
     const partner = thread ? findPersonById(counterpartOf(thread, currentUser.profile.id) as never) : undefined;
-    page = thread ? <ChatPage roomType={route.roomType} thread={thread} messages={[...getMessagesForThread(thread.id),...createdMessages.filter((item)=>item.threadId===thread.id),...sentMessages.filter((item)=>item.threadId===thread.id)]} people={people} currentUserId={currentUser.profile.id} connection={{transport:online?'WS':'POLLING',phase:online?'LIVE':'OFFLINE',attempted:online?['WS']:['WS','SSE','POLLING'],lastReceivedSeq:thread.messageIds.length + sentMessages.filter((item)=>item.threadId===thread.id).length,pollingIntervalSeconds:10}} onBack={routeBack} onSend={async(request)=>{await runDemoMutation({action:'send',entityId:request.threadId,expectedVersion:thread.entityVersion,currentVersion:thread.entityVersion,requiresOnline:true,commit:()=>{setSentMessages((items)=>[...items,{id:('message_local_'+randomId().replaceAll('-','')) as never,threadId:request.threadId,kind:'TEXT' as never,senderId:currentUser.profile.id,text:request.text,createdAt:new Date().toISOString() as never,deliveryStatus:'SENT' as never}]);}});setMessage('消息已发送');}} discussionRoom={topic && runtime ? { topic, runtime, partner, onNextPrompt: (prompt) => { setCreatedMessages((items) => [...items, { id: ('message_prompt_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.STRUCTURED_PROMPT, senderId: null, promptStage: prompt.promptStage, text: prompt.text, createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('已加入下一阶段提示，不会代你发送'); }, onContinue: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.CONTINUE, partnerDecision: DiscussionContinueDecision.CONTINUE, unlocked: true } })); setCreatedMessages((items) => [...items, { id: ('message_continue_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.SYSTEM, senderId: null, event: 'MATCH_CREATED' as never, text: '你们都愿意继续认识。已按隐私设置解锁更多资料。', createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('双方已同意继续认识'); }, onFinish: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.FINISH } })); setMessage('讨论已结束，不会向对方展示原因'); routeBack(); }, onLeave: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.LEFT_TEMPORARILY } })); setMessage('已暂时离开，房间会保留一段时间'); routeBack(); }, onReport: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.REPORTED } })); setMessage('已中止讨论并提交安全处理'); routeBack(); } } : undefined}/> : <NotFound onBack={routeBack}/>;
+    const blockedCounterpart = partner ? blockedPeople.has(partner.id) : false;
+    page = thread ? <ChatPage roomType={route.roomType} thread={thread} messages={[...getMessagesForThread(thread.id),...createdMessages.filter((item)=>item.threadId===thread.id),...sentMessages.filter((item)=>item.threadId===thread.id)]} people={people} currentUserId={currentUser.profile.id} conversationEnded={endedThreads.has(thread.id) || blockedCounterpart} connection={{transport:online?'WS':'POLLING',phase:online?'LIVE':'OFFLINE',attempted:online?['WS']:['WS','SSE','POLLING'],lastReceivedSeq:thread.messageIds.length + sentMessages.filter((item)=>item.threadId===thread.id).length,pollingIntervalSeconds:10}} onBack={routeBack} onContinue={() => setMessage('已选择继续认识')} onFinish={() => { setEndedThreads((current) => new Set(current).add(thread.id)); if (runtime) setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.FINISH } })); setMessage('讨论已结束'); routeBack(); }} onReport={(request) => { setEndedThreads((current) => new Set(current).add(thread.id)); const blockedPersonId = request.subject.type === 'PERSON' ? request.subject.personId : null; if (request.blockAfterReport && blockedPersonId) { setBlockedPeople((current) => new Set(current).add(blockedPersonId)); allThreads.filter((item) => item.participantIds.includes(blockedPersonId)).forEach((item) => setEndedThreads((current) => new Set(current).add(item.id))); } if (runtime) setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.REPORTED } })); setMessage('举报已提交，平台会尽快处理'); routeBack(); }} onSend={async(request)=>{await runDemoMutation({action:'send',entityId:request.threadId,expectedVersion:thread.entityVersion,currentVersion:thread.entityVersion,requiresOnline:true,commit:()=>{setSentMessages((items)=>[...items,{id:('message_local_'+randomId().replaceAll('-', '')) as never,threadId:request.threadId,kind:'TEXT' as never,senderId:currentUser.profile.id,text:request.text,createdAt:new Date().toISOString() as never,deliveryStatus:'SENT' as never}]);}});setMessage('消息已发送');}} discussionRoom={topic && runtime ? { topic, runtime, partner, onNextPrompt: (prompt) => { setCreatedMessages((items)=>[...items, { id: ('message_prompt_' + randomId().replaceAll('-', '')) as never, threadId: thread.id, kind: MessageKind.STRUCTURED_PROMPT, senderId: null, promptStage: prompt.promptStage, text: prompt.text, createdAt: new Date().toISOString() as never, deliveryStatus: 'SENT' as never }]); setMessage('已加入下一阶段提示，不会代你发送'); }, onContinue: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.CONTINUE } })); setMessage('已选择继续，等待对方回应'); }, onLeave: () => { setDiscussionRuntimes((current) => ({ ...current, [thread.id]: { ...(current[thread.id] ?? runtime), myDecision: DiscussionContinueDecision.LEFT_TEMPORARILY } })); setMessage('已暂时离开，房间会保留一段时间'); routeBack(); } } : undefined}/> : <NotFound onBack={routeBack}/>;
   }
   else if (route.kind === 'create') page = <CreateActivityPage key={route.draftId} draftId={route.draftId} step={route.step} draft={draft} submissionState={submissionState} onDraftChange={setDraft} onStepChange={(step) => go('/activities/new/' + route.draftId + '/' + step)} onCancel={leaveCreateFlow} onSaveDraft={(next) => persistDraft(route.draftId, next)} onSubmitForReview={() => submitDraft(route.draftId)}/>;
   else if (route.kind === 'onboarding') page = <OnboardingPage step={route.step} online={online} onNavigate={go}/>;
@@ -275,11 +337,14 @@ export default function App() {
   if (route.kind === 'activity') {
     const activity = findActivityById(route.id as never);
     const opportunity = findActivityOpportunityById(route.id as never);
-    if (activity) { const card=activityFeed.find((item)=>item.entityId===activity.id); const hasApplication=knownApplicationIds.has(activity.id)||joinedActivities.has(activity.id); const canJoin=!hasApplication&&Boolean(card&&(card.allowedActions as readonly FeedAction[]).some((action)=>action===FeedAction.JOIN_ACTIVITY||action===FeedAction.APPLY_TO_ACTIVITY)); detail = <ActivityDetail activity={activity} saved={savedActivities.has(activity.id)} joined={hasApplication} canJoin={canJoin} joining={pending?.key === 'join:' + activity.id} onBack={routeBack} onSave={() => saveActivity(activity)} onJoin={() => hasApplication ? setMessage('当前已有申请或参与记录') : canJoin && setJoinConfirm(activity)}/>; }
+    if (activity) { const card=activityFeed.find((item)=>item.entityId===activity.id); const hasApplication=knownApplicationIds.has(activity.id)||joinedActivities.has(activity.id); const canJoin=!hasApplication&&Boolean(card&&(card.allowedActions as readonly FeedAction[]).some((action)=>action===FeedAction.JOIN_ACTIVITY||action===FeedAction.APPLY_TO_ACTIVITY)); const canMessageParticipants=conversationEligibleActivityIds.has(activity.id); detail = <ActivityDetail activity={activity} saved={savedActivities.has(activity.id)} joined={hasApplication} canJoin={canJoin} joining={pending?.key === 'join:' + activity.id} onBack={routeBack} onSave={() => saveActivity(activity)} onJoin={() => hasApplication ? setMessage('当前已有申请或参与记录') : canJoin && setJoinConfirm(activity)} onOpenParticipant={(person) => person.id === currentUser.profile.id ? go('/me/profile') : navigate('/people/' + person.id, { state: { from: location.pathname + location.search, activityId: activity.id, canStartConversation: canMessageParticipants } })}/>; }
     else if (opportunity) detail = <OpportunityDetail activity={opportunity} onBack={routeBack} onCreate={() => go('/activities/new/local-draft/1')}/>;
   } else if (route.kind === 'person') {
     const person = findPersonById(route.id as never);
-    if (person) detail = <PersonDetail person={person} suggestedActivity={activities[0]} hearted={heartedPeople.has(person.id)} hearting={pending?.key === 'person:' + person.id} onBack={routeBack} onHeart={() => heartPerson(person)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})}/>;
+    const hasConversation = person && allThreads.some((thread) => thread.kind === ThreadKind.MATCH && thread.participantIds.includes(person.id) && thread.participantIds.includes(currentUser.profile.id));
+    const sourceActivity = typeof location.state.activityId === 'string' ? findActivityById(location.state.activityId as never) : undefined;
+    const canStartFromActivity = Boolean(sourceActivity && location.state.canStartConversation === true && conversationEligibleActivityIds.has(sourceActivity.id));
+    if (person) detail = <PersonDetail person={person} suggestedActivity={activities[0]} hearted={heartedPeople.has(person.id)} hearting={pending?.key === 'person:' + person.id} onBack={routeBack} onHeart={() => heartPerson(person)} onOpenActivity={(activity) => navigate('/activities/' + activity.id,{state:{from:location.pathname+location.search}})} onStartConversation={person.id !== currentUser.profile.id && (canStartFromActivity || hasConversation) ? () => sourceActivity && canStartFromActivity ? startActivityParticipantConversation(sourceActivity, person) : startConversation(person) : undefined}/>;
   } else if (route.kind === 'topic') {
     const topic = findGeneratedTopicById(route.id as never) ?? findTopicById(route.id as never);
     if (topic) detail = <TopicDetail topic={topic} vote={topicVotes[topic.id]} online={online} matching={topicMatch?.topic.id === topic.id} onBack={routeBack} onSaveVote={saveVote} onStartDiscussion={(mode, vote) => startTopicMatch(topic, mode, vote)}/>;

@@ -1,4 +1,5 @@
 import { Bell, Compass, Home, MessageCircle, Plus, Search, UserRound } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { Person } from '../domain';
 import { SafeImage } from './SafeImage';
 
@@ -44,6 +45,6 @@ export function BottomNav({ active, onNavigate }: { active: NavTab; onNavigate: 
   );
 }
 
-export function MobileBrandBar({ onSearch, onMessages }: { onSearch: () => void; onMessages: () => void }) {
-  return <header className="mobile-brand-bar"><Brand compact /><div><button className="icon-button" aria-label="搜索" onClick={onSearch}><Search size={21}/></button><button className="icon-button has-unread" aria-label="通知，3 条未读" onClick={onMessages}><Bell size={21}/></button></div></header>;
+export function MobileBrandBar({ tabs, onSearch, onMessages }: { tabs?: ReactNode; onSearch: () => void; onMessages: () => void }) {
+  return <header className="mobile-brand-bar"><Brand compact />{tabs}<div className="mobile-brand-actions"><button className="icon-button" aria-label="搜索" onClick={onSearch}><Search size={19}/></button><button className="icon-button has-unread" aria-label="通知，3 条未读" onClick={onMessages}><Bell size={19}/></button></div></header>;
 }

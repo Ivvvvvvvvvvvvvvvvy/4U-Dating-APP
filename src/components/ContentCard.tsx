@@ -27,7 +27,7 @@ function ActivityCard({ card, activity, actions }: { card: FeedCard; activity: A
         <SafeImage src={activity.cover.url} ratio={activity.cover.width + ' / ' + activity.cover.height} alt={activity.title} loading="lazy" fallbackLabel={activity.category} />
         <span className={'type-badge type-badge--' + activity.format.toLowerCase()}><UsersRound size={13}/>{activity.format === 'PAIR' ? '双人同行' : '多人小组'}</span>
         <span className="status-badge"><i/>{status}</span>
-        {(card.allowedActions as readonly FeedAction[]).includes(FeedAction.SAVE) && <button type="button" className={'quick-action bookmark-action ' + (saved ? 'is-active' : '')} aria-label={saved ? '取消收藏活动' : '收藏活动'} aria-pressed={saved} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onSaveActivity(activity); }}><Bookmark size={19} fill={saved ? 'currentColor' : 'none'}/></button>}
+        {(card.allowedActions as readonly FeedAction[]).includes(FeedAction.SAVE) && <button type="button" className={'quick-action bookmark-action ' + (saved ? 'is-active' : '')} aria-label={saved ? '取消收藏活动' : '收藏活动'} aria-pressed={saved} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onSaveActivity(activity); }}><Bookmark size={16} fill={saved ? 'currentColor' : 'none'}/></button>}
         <div className="resonance resonance--activity" aria-hidden="true"><i/><i/></div>
       </div>
       <div className="card-body">
@@ -41,7 +41,12 @@ function ActivityCard({ card, activity, actions }: { card: FeedCard; activity: A
   );
 }
 
-function PersonCard({ card, person, actions, compact = false }: { card: FeedCard; person: Person; actions: CardActions; compact?: boolean }) {
+function compatibilityFor(person: Person) {
+  const hash = [...person.id].reduce((value, character) => Math.imul(value ^ character.charCodeAt(0), 16_777_619), 2_166_136_261);
+  return 82 + ((hash >>> 0) % 16);
+}
+
+function PersonCard({ card, person, actions, compact = false, showCompatibility = false }: { card: FeedCard; person: Person; actions: CardActions; compact?: boolean; showCompatibility?: boolean }) {
   const hearted = actions.heartedPeople.has(person.id);
   const pending = actions.pendingKey === 'person:' + person.id;
   return (
@@ -49,8 +54,9 @@ function PersonCard({ card, person, actions, compact = false }: { card: FeedCard
       <button type="button" className="card-main-action" aria-label={'查看个人：' + person.displayName} onClick={() => actions.onOpen(card)} />
       <div className="card-media person-media">
         <SafeImage src={person.photos[0].url} ratio="4 / 5" alt={person.displayName} loading="lazy" fallbackLabel="个人照片" />
+        {showCompatibility && <span className="compatibility-badge"><Sparkles size={12}/><b>契合度 {compatibilityFor(person)}%</b></span>}
         <div className="person-overlay"><span>{person.verification.personhood === VerificationStatus.VERIFIED && <CheckCircle2 size={14}/>}资料完整</span><h2>{person.displayName}<small>{person.age}</small></h2><p>{person.city} · {relationshipLabel(person)}</p></div>
-        {(card.allowedActions as readonly FeedAction[]).includes(FeedAction.HEART_PERSON) && <button type="button" className={'quick-action heart-action ' + (hearted ? 'is-active' : '')} aria-label={hearted ? '取消心动' : '心动'} aria-pressed={hearted} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onHeartPerson(person); }}><Heart size={19} fill={hearted ? 'currentColor' : 'none'}/></button>}
+        {(card.allowedActions as readonly FeedAction[]).includes(FeedAction.HEART_PERSON) && <button type="button" className={'quick-action heart-action ' + (hearted ? 'is-active' : '')} aria-label={hearted ? '取消喜欢' : '心动'} aria-pressed={hearted} disabled={pending} onClick={(event) => { event.stopPropagation(); actions.onHeartPerson(person); }}><Heart size={16} fill={hearted ? 'currentColor' : 'none'}/><span>{hearted ? '已喜欢' : '心动'}</span></button>}
         <div className="resonance resonance--person" aria-hidden="true"><i/><i/></div>
       </div>
       <div className="card-body">
@@ -82,10 +88,10 @@ function OpportunityCard({ card, activity, actions }: { card: FeedCard; activity
   return <article className="feed-card opportunity-card" data-card-type="ACTIVITY_OPPORTUNITY" data-card-id={card.cardId}><button type="button" className="card-main-action" aria-label={'查看活动灵感：' + activity.title} onClick={() => actions.onOpen(card)} /><span>活动灵感 · {activity.authorizedInterestCount} 人公开感兴趣</span><Sparkles size={28}/><h2>{activity.title}</h2><p>{card.reason.explanation}</p><b>查看灵感 →</b></article>;
 }
 
-export function ContentCard({ card, actions, compactPerson = false }: { card: FeedCard; actions: CardActions; compactPerson?: boolean }) {
+export function ContentCard({ card, actions, compactPerson = false, showCompatibility = false }: { card: FeedCard; actions: CardActions; compactPerson?: boolean; showCompatibility?: boolean }) {
   const entity = actions.resolveEntity(card);
   if (card.cardType === FeedCardType.ACTIVITY && entity?.entityType === FeedCardType.ACTIVITY) return <ActivityCard card={card} activity={entity} actions={actions}/>;
-  if (card.cardType === FeedCardType.PERSON && entity?.entityType === FeedCardType.PERSON) return <PersonCard card={card} person={entity} actions={actions} compact={compactPerson}/>;
+  if (card.cardType === FeedCardType.PERSON && entity?.entityType === FeedCardType.PERSON) return <PersonCard card={card} person={entity} actions={actions} compact={compactPerson} showCompatibility={showCompatibility}/>;
   if (card.cardType === FeedCardType.TOPIC && entity?.entityType === FeedCardType.TOPIC) return <TopicCard card={card} topic={entity} actions={actions}/>;
   if (card.cardType === FeedCardType.ACTIVITY_OPPORTUNITY && entity?.entityType === FeedCardType.ACTIVITY_OPPORTUNITY) return <OpportunityCard card={card} activity={entity} actions={actions}/>;
   return <article className="feed-card unknown-card" role="status"><b>暂不支持的内容类型</b><p>请刷新后重试；当前内容已安全隐藏。</p></article>;
