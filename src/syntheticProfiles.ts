@@ -4,7 +4,8 @@
  * The private records in this module are generation fixtures. UI consumers
  * must use `syntheticPeople`, `syntheticPublicProfiles`, and the feed cards,
  * all of which are produced through the permission-aware public projection.
- * Portraits are generated abstract SVG illustrations and depict no real person.
+ * Portraits use public celebrity photography as mock-only visual material.
+ * The fictional profile data does not describe the pictured celebrity.
  */
 import {
   FeedAction,
@@ -73,15 +74,17 @@ import type {
   SyntheticUserRecord,
 } from './profileSchema';
 import {
-  selectAnimeCharacterPortrait,
-  toAnimeCharacterMedia,
-} from './animeCharacterPortraits';
+  selectCelebrityPortrait,
+  toCelebrityMedia,
+  type MockProfileGender,
+} from './celebrityPortraits';
 
 export const SYNTHETIC_PROFILE_SEED = '4u-fictional-adults-v1-20260822';
 export const SYNTHETIC_PROFILE_AS_OF = '2026-08-22' as const satisfies ISODate;
 export const SYNTHETIC_PROFILE_GENERATED_AT =
   '2026-08-22T09:00:00+08:00' as const;
-export const SYNTHETIC_PROFILE_COUNT = 200;
+/** 49 candidates plus the separate Lin Chuan experience account = 50 mock users. */
+export const SYNTHETIC_PROFILE_COUNT = 49;
 
 const LEGACY_IDENTITIES = [
   { id: 'person_lan', displayName: '阿岚' },
@@ -156,6 +159,10 @@ const ZODIAC_ANCHORS = {
 } as const satisfies Readonly<Record<ZodiacSign, readonly [number, number]>>;
 
 const MBTI_VALUES = Object.values(MbtiType);
+const MOCK_PROFILE_GENDER_VALUES = [
+  SelfGender4.WOMAN,
+  SelfGender4.MAN,
+] as const satisfies readonly MockProfileGender[];
 const SCALE_VALUES = [1, 2, 3, 4, 5] as const;
 const PHOTO_COUNTS = [2, 3, 4, 5, 6] as const;
 const PROMPT_COUNTS = [1, 2, 3] as const;
@@ -239,13 +246,14 @@ const chooseInterests = (seed: string, index: number, count: number): [string, .
 const makePhotos = (
   index: number,
   displayName: string,
-  selfGender: SelfGender4,
+  selfGender: MockProfileGender,
+  genderOrdinal: number,
   count: number,
 ): [MediaAsset, ...MediaAsset[]] => {
-  const artwork = selectAnimeCharacterPortrait(selfGender, index);
+  const artwork = selectCelebrityPortrait(selfGender, genderOrdinal);
   return Array.from(
     { length: count },
-    (_, ordinal) => toAnimeCharacterMedia(index, ordinal, displayName, artwork),
+    (_, ordinal) => toCelebrityMedia(index, ordinal, displayName, artwork),
   ) as [MediaAsset, ...MediaAsset[]];
 };
 
@@ -427,7 +435,7 @@ export const generateSyntheticUserRecords = (
   const ages = balancedAssignment(AGE_VALUES, count, seed, 'age');
   if (count > LEGACY_IDENTITIES.length) ages[LEGACY_IDENTITIES.length] = 18;
   if (count > LEGACY_IDENTITIES.length + 1) ages[LEGACY_IDENTITIES.length + 1] = 58;
-  const genders = balancedAssignment(SELF_GENDER4_VALUES, count, seed, 'self-gender');
+  const genders = balancedAssignment(MOCK_PROFILE_GENDER_VALUES, count, seed, 'self-gender');
   const desiredGenderPatterns = balancedAssignment(
     DESIRED_GENDER_PATTERNS, count, seed, 'desired-gender-pattern',
   );
@@ -449,6 +457,8 @@ export const generateSyntheticUserRecords = (
   const axesByKey = Object.fromEntries(LIFESTYLE_AXIS_KEYS.map((axis) => [
     axis, balancedAssignment(SCALE_VALUES, count, seed, `lifestyle-axis-${axis}`),
   ])) as Record<(typeof LIFESTYLE_AXIS_KEYS)[number], Scale1To5[]>;
+
+  const genderOrdinals: Record<MockProfileGender, number> = { WOMAN: 0, MAN: 0 };
 
   return Array.from({ length: count }, (_, index): SyntheticUserRecord => {
     const identity = profileIdentity(index);
@@ -473,7 +483,11 @@ export const generateSyntheticUserRecords = (
     };
     const occupations = OCCUPATIONS_BY_INDUSTRY[industry];
     const occupation = occupations[fieldHash(seed, index, 'occupation') % occupations.length];
-    const photos = makePhotos(index, identity.displayName, selfGender, photoCounts[index]);
+    const genderOrdinal = genderOrdinals[selfGender];
+    genderOrdinals[selfGender] += 1;
+    const photos = makePhotos(
+      index, identity.displayName, selfGender, genderOrdinal, photoCounts[index],
+    );
     const prompts = makePrompts(interests, promptCounts[index]);
     const permissions = makePermissions(index);
 

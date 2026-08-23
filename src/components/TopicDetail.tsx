@@ -249,7 +249,7 @@ type TopicCommentReply = {
 };
 
 const starterComments: TopicComment[] = [
-  { id: 'comment-boundary', author: '小满', avatar: '满', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前', likes: 26 },
+  { id: 'comment-boundary', author: '林川', avatar: '林', body: '我更在意双方有没有提前说清楚边界，规则本身其实可以一起商量。', time: '12 分钟前', likes: 26 },
   { id: 'comment-context', author: '林一', avatar: '林', body: '具体情境也很重要。同一件事在隐瞒和坦诚的前提下，感受会完全不同。', time: '28 分钟前', likes: 14 },
   { id: 'comment-respect', author: 'Nana', avatar: 'N', body: '尊重彼此的不舒服，比争论谁的标准更正确更重要。', time: '1 小时前', likes: 9 },
 ];

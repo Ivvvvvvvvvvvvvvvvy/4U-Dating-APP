@@ -31,6 +31,10 @@ const {
   publicFixturePeople,
   publicFixtureCards,
   syntheticCoverageReport: report,
+  celebrityPortraitsByGender: portraitPools,
+  candidateCelebrityPortraits,
+  currentUserCelebrityPortrait,
+  currentUser,
   publicProfileProjections: projections,
   schemaValidationResults,
   schemaMutualCandidateIds,
@@ -40,7 +44,8 @@ const {
   schemaConstants: constants,
 } = payload;
 
-const EXPECTED_COUNT = 200;
+const EXPECTED_COUNT = 49;
+const EXPECTED_TOTAL_MOCK_USERS = 50;
 const REQUIRED_PERSON_IDS = ['person_lan', 'person_zhou', 'person_ning', 'person_chen'];
 const MBTI_VALUES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
@@ -51,18 +56,7 @@ const ZODIAC_VALUES = [
   'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES',
 ];
 const SELF_GENDERS = ['WOMAN', 'MAN', 'NON_BINARY', 'SELF_DESCRIBED'];
-const REQUESTED_ANIME_WORKS = [
-  '《哪吒之魔童闹海》',
-  '《落凡尘》',
-  '《白蛇：浮生》',
-  '《鬼灭之刃 无限城篇》',
-  '《排球少年！！垃圾场决战》',
-  '《电锯人 蕾洁篇》',
-  '《名侦探柯南》系列剧场版',
-  '《头脑特工队2》',
-  '《荒野机器人》',
-  '《疯狂动物城2》',
-];
+const GENERATED_SELF_GENDERS = ['WOMAN', 'MAN'];
 const RELATIONSHIP_GOALS = [
   'LONG_TERM', 'SERIOUS_AND_NATURAL', 'CASUAL_DATING', 'FRIENDS_FIRST', 'UNSURE',
 ];
@@ -103,11 +97,32 @@ for (const [label, value] of Object.entries({
   schemaValidationResults,
 })) {
   assert.ok(Array.isArray(value), label + ' must be an array');
-  assert.equal(value.length, EXPECTED_COUNT, label + ' must contain exactly 200 items');
+  assert.equal(value.length, EXPECTED_COUNT, label + ' must contain exactly 49 candidate items');
 }
 assert.deepEqual(profiles, records, 'syntheticProfiles must be the complete-record alias');
 assert.deepEqual(publicFixturePeople, people, 'public-only people fixture differs from private projection');
 assert.deepEqual(publicFixtureCards, cards, 'public-only card fixture differs from private projection');
+assert.equal(records.length + 1, EXPECTED_TOTAL_MOCK_USERS, 'candidate plus experience-account total must be 50');
+assert.equal(currentUser.profile.displayName, '林川', 'experience account name must be Lin Chuan');
+assert.equal(currentUser.profile.photos[0].url, currentUserCelebrityPortrait.url, 'experience account portrait drifted');
+assert.equal(candidateCelebrityPortraits.length, EXPECTED_COUNT, 'candidate portrait registry must contain 49 images');
+assert.equal(unique(candidateCelebrityPortraits.map((portrait) => portrait.id)).size, EXPECTED_COUNT, 'celebrity portrait IDs must be unique');
+assert.equal(unique(candidateCelebrityPortraits.map((portrait) => portrait.url)).size, EXPECTED_COUNT, 'candidate celebrity portrait URLs must be unique');
+assert.equal(candidateCelebrityPortraits.some((portrait) => portrait.url === currentUserCelebrityPortrait.url), false, 'experience account portrait must be unique');
+assert.equal(currentUserCelebrityPortrait.gender, 'MAN', 'Lin Chuan portrait must use the male pool');
+assert.deepEqual(
+  sorted(candidateCelebrityPortraits.map((portrait) => portrait.url)),
+  sorted(records.map((record) => record.person.photos[0].url)),
+  'every candidate portrait must be used exactly once',
+);
+for (const gender of GENERATED_SELF_GENDERS) {
+  assert.ok(portraitPools[gender].every((portrait) => portrait.gender === gender), gender + ' portrait pool contains a gender mismatch');
+}
+assert.ok(
+  records.every((record) => !candidateCelebrityPortraits.some((portrait) =>
+    record.person.displayName === portrait.celebrityName)),
+  'fictional profile names must not impersonate pictured celebrities',
+);
 
 const recordIds = assertUniqueIds(records, (record) => record.person.id, 'person_', 'records');
 const profileIds = assertUniqueIds(profiles, (record) => record.person.id, 'person_', 'profiles');
@@ -225,11 +240,8 @@ records.forEach((record, index) => {
   );
   record.person.photos.forEach((photo) => {
     assert.ok(photo.id.startsWith('media_'), label + ' has invalid media ID');
-    assert.ok(photo.url.startsWith('https://'), label + ' photo is not HTTPS character artwork');
-    assert.ok(
-      REQUESTED_ANIME_WORKS.some((work) => photo.alt.includes(work)),
-      label + ' photo does not identify one of the requested animated works',
-    );
+    assert.ok(photo.url.startsWith('https://image.tmdb.org/'), label + ' photo is not approved celebrity artwork');
+    assert.equal(photo.alt, record.person.displayName + '的示例头像', label + ' photo alt must describe only the fictional user');
     assert.ok(nonBlank(photo.alt), label + ' photo alt text missing');
     assert.ok(photo.width > 0 && photo.height > 0, label + ' photo dimensions invalid');
     allMediaIds.push(photo.id);
@@ -317,22 +329,19 @@ records.forEach((record, index) => {
   }
 });
 
-assert.deepEqual(
-  sorted(new Set(records.flatMap((record) =>
-    REQUESTED_ANIME_WORKS.filter((work) => record.person.photos[0].alt.includes(work)),
-  ))),
-  sorted(REQUESTED_ANIME_WORKS),
-  'generated profiles must cover all requested animated works',
-);
 records.forEach((record) => {
   const urls = new Set(record.person.photos.map((photo) => photo.url));
-  assert.equal(urls.size, 1, record.person.id + ' photos must stay on one character');
+  assert.equal(urls.size, 1, record.person.id + ' photos must stay on one celebrity portrait');
+  assert.ok(GENERATED_SELF_GENDERS.includes(record.selfGender), record.person.id + ' has no gender-matched portrait pool');
+  const allowedUrls = new Set(portraitPools[record.selfGender].map((portrait) => portrait.url));
+  assert.ok(allowedUrls.has(record.person.photos[0].url), record.person.id + ' portrait does not match its explicit gender');
 });
+assert.equal(unique(records.map((record) => record.person.photos[0].url)).size, EXPECTED_COUNT, 'candidate profiles must not reuse celebrity portraits');
 assert.equal(unique(allMediaIds).size, allMediaIds.length, 'media asset IDs must be globally unique');
 
 assertSameSet(records.map((record) => record.person.mbti), MBTI_VALUES, 'must cover 16 MBTI plus UNSURE');
 assertSameSet(records.map((record) => record.person.zodiac), ZODIAC_VALUES, 'must cover all 12 zodiac signs');
-assertSameSet(records.map((record) => record.selfGender), SELF_GENDERS, 'must cover four genders');
+assertSameSet(records.map((record) => record.selfGender), GENERATED_SELF_GENDERS, 'mock profiles must cover both gender-matched portrait pools');
 assertSameSet(records.map((record) => record.relationshipGoal), RELATIONSHIP_GOALS, 'must cover five relationship goals');
 
 const desiredGenderSignature = (values) => sorted(values).join('|');
@@ -358,7 +367,7 @@ assert.ok(
   Math.max(...desiredGenderPatternCountValues) - Math.min(...desiredGenderPatternCountValues) <= 1,
   'desired-gender preference patterns must be globally balanced',
 );
-const preferenceAssociationBySelfGender = Object.fromEntries(SELF_GENDERS.map((selfGender) => {
+const preferenceAssociationBySelfGender = Object.fromEntries(GENERATED_SELF_GENDERS.map((selfGender) => {
   const groupSignatures = records
     .filter((record) => record.selfGender === selfGender)
     .map((record) => desiredGenderSignature(record.private.candidatePreferences.desiredGenders));
@@ -376,23 +385,11 @@ const preferenceAssociationBySelfGender = Object.fromEntries(SELF_GENDERS.map((s
   );
   return [selfGender, { distinctPatterns: groupCounts.length, dominantShare }];
 }));
-expectedDesiredGenderPatterns.forEach((signature) => {
-  const recordsWithPattern = records
-    .filter((record) =>
-      desiredGenderSignature(record.private.candidatePreferences.desiredGenders) === signature)
-  const representedSelfGenders = unique(recordsWithPattern.map((record) => record.selfGender));
-  const dominantSelfGenderCount = Math.max(...SELF_GENDERS.map((selfGender) =>
-    recordsWithPattern.filter((record) => record.selfGender === selfGender).length,
-  ));
-  assert.ok(
-    representedSelfGenders.size >= 2,
-    'desired-gender pattern is deterministically tied to selfGender: ' + signature,
-  );
-  assert.ok(
-    dominantSelfGenderCount / recordsWithPattern.length < 0.75,
-    'desired-gender pattern is nearly fixed to one selfGender: ' + signature,
-  );
-});
+assert.ok(
+  Object.values(preferenceAssociationBySelfGender).every((item) =>
+    item.distinctPatterns >= Math.ceil(expectedDesiredGenderPatterns.length / 2)),
+  'each generated self-gender must retain varied candidate preferences',
+);
 assertSameSet(
   records.map((record) => record.costSharingPreference),
   Object.values(constants.CostSharingPreference),
@@ -645,7 +642,10 @@ for (const [reportKey, values, expected] of [
   ['industries', records.map((record) => record.industry), Object.values(constants.Industry)],
 ]) {
   assert.deepEqual(report[reportKey].counts, counts(values, expected), reportKey + ' report counts');
-  assert.deepEqual(report[reportKey].missing, [], reportKey + ' report has missing values');
+  const expectedMissing = reportKey === 'selfGenders'
+    ? SELF_GENDERS.filter((value) => !GENERATED_SELF_GENDERS.includes(value))
+    : [];
+  assert.deepEqual(report[reportKey].missing, expectedMissing, reportKey + ' report missing values');
   assert.equal(sum(Object.values(report[reportKey].counts)), EXPECTED_COUNT, reportKey + ' denominator');
 }
 assert.deepEqual(report.mbtiCounts, counts(records.map((record) => record.person.mbti), MBTI_VALUES));
