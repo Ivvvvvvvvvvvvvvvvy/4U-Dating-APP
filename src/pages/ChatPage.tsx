@@ -220,6 +220,56 @@ export function ChatPage({
           </button>
         </div>
       </footer>
+      {discussionRoom && finishSurveyOpen && (
+        <Modal title="为什么结束这次讨论？" onClose={() => setFinishSurveyOpen(false)}>
+          <p className="finish-survey-intro">选择最主要的原因（最多 3 项）。反馈不会展示给对方，会用于优化下一次匹配的人选和话题。</p>
+          <div className="finish-survey-options" role="group" aria-label="结束讨论的原因">
+            {discussionEndReasons.map((reason) => (
+              <button
+                key={reason.value}
+                type="button"
+                role="checkbox"
+                aria-checked={finishReasons.includes(reason.value)}
+                className={finishReasons.includes(reason.value) ? 'is-selected' : ''}
+                onClick={() => setFinishReasons((current) => current.includes(reason.value)
+                  ? current.filter((item) => item !== reason.value)
+                  : current.length < 3 ? [...current, reason.value] : current)}
+              >
+                <i aria-hidden="true" />
+                <span><strong>{reason.label}</strong><small>{reason.hint}</small></span>
+              </button>
+            ))}
+          </div>
+          <label className="finish-survey-note">
+            <span>下一次更希望遇到什么样的人？</span>
+            <textarea
+              value={finishNote}
+              rows={3}
+              maxLength={200}
+              placeholder="例如：希望对方更主动一些，住得近，周末也喜欢户外活动…"
+              onChange={(event) => setFinishNote(event.target.value)}
+            />
+            <small>{finishNote.length}/200 · 选填</small>
+          </label>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!finishReasons.length && !finishNote.trim()}
+            onClick={() => {
+              if (!finishReasons.length && !finishNote.trim()) return;
+              localStorage.setItem(`4u:rfc:discussion-feedback:${thread.id}`, JSON.stringify({
+                topicId: discussionRoom.topic.id,
+                partnerId: discussionRoom.partner?.id,
+                reasons: finishReasons,
+                note: finishNote.trim(),
+                createdAt: new Date().toISOString(),
+              }));
+              discussionRoom.onFinish();
+            }}
+          >提交并结束讨论</button>
+          <button type="button" className="text-button" onClick={() => setFinishSurveyOpen(false)}>继续聊聊</button>
+        </Modal>
+      )}
     </section>
   );
 }

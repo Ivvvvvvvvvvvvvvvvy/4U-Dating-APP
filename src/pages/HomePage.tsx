@@ -45,7 +45,12 @@ const secondaryTabs = {
     { value: 'movie', label: '电影' },
     { value: 'sport', label: '运动' },
   ],
-  topics: [{ value: 'hot', label: '全部话题' }],
+  topics: [
+    { value: 'hot', label: '热门' },
+    { value: 'relationship', label: '关系议题' },
+    { value: 'lifestyle', label: '生活兴趣' },
+    { value: 'expression', label: '轻表达' },
+  ],
 } as const satisfies Readonly<Record<HomePrimary, readonly TabOption<HomeSecondary>[]>>;
 
 const leadByPrimary: Readonly<Record<HomePrimary, { title: string; description: string }>> = {
@@ -239,7 +244,7 @@ export function HomePage({
   const isRecommendationFeed = primary === 'recommend';
   const routeCards = cardsForRoute(primary, secondary, cardActions, recommendationCards);
   const visibleCards = isTopicFeed
-    ? mixedTopicCards
+    ? filterTopics(mixedTopicCards, secondary, cardActions)
     : isRecommendationFeed
       ? routeCards.slice(0, visibleRecommendationCount)
       : routeCards;
@@ -269,7 +274,7 @@ export function HomePage({
 
   const navigatePrimary = (nextPrimary: HomePrimary) => {
     if (nextPrimary === primary) { window.scrollTo({ top: 0, behavior: 'smooth' }); onRetry(); return; }
-    const remembered = nextPrimary === 'topics' ? 'hot' : localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
+    const remembered = localStorage.getItem('4u:rfc:home-secondary:' + nextPrimary) as HomeSecondary | null;
     const nextSecondary = remembered ?? homeDefaults[nextPrimary];
     setRecommendationPage({ key: `${nextPrimary}:${nextSecondary}`, count: RECOMMENDATION_PAGE_SIZE });
     onNavigate(canonicalPath({

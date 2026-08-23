@@ -409,7 +409,7 @@ function TopicComments({ topicId, online, matching, onChat }: { topicId: string;
               <PenLine size={17} />说点什么…
             </button>
             <button type="button" className="primary-button topic-online-chat" disabled={!online || matching} onClick={onChat}>
-              <MessageCircle size={18} />{matching ? '正在匹配…' : '在线开聊'}
+              <MessageCircle size={18} />{matching ? '正在匹配…' : '立即开聊'}
             </button>
           </footer>
         </>,
@@ -452,9 +452,6 @@ function LifestyleTopicDetail({
           <aside className="topic-opening"><MessageCircle size={16} /><span>{topic.openingQuestion}</span></aside>
         </section>
         <section className="detail-section topic-join-block">
-          <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
-            <MessageCircle size={18} />{matching ? '正在匹配…' : '加入讨论'}
-          </button>
           <p className="topic-vote-hint">不要求先看完整照片墙和详细资料。系统优先匹配正在浏览或已选择同一话题的在线用户。</p>
           <small className={'topic-live-hint ' + (online ? 'is-live' : 'is-offline')}>
             {online ? <><Radio size={13} />当前 {liveCount} 人在线</> : '离线时无法匹配'}
@@ -468,6 +465,14 @@ function LifestyleTopicDetail({
           </div>
         </section>
       </div>
+      {typeof document !== 'undefined' && createPortal(
+        <footer className="sticky-action sticky-action--single">
+          <button type="button" className="primary-button topic-instant-button" disabled={!online || matching} onClick={onJoin}>
+            <MessageCircle size={18} />{matching ? '正在匹配…' : '立即开聊'}
+          </button>
+        </footer>,
+        document.body,
+      )}
     </article>
   );
 }

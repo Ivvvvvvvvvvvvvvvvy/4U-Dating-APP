@@ -115,9 +115,14 @@ export default function App() {
     }
     const existingThread = findActiveTopicDiscussion(topic.id, matchMode, allThreads, currentUser.profile.id);
     const partnerId = existingThread ? counterpartOf(existingThread, currentUser.profile.id) : undefined;
-    const partner = existingThread
-      ? partnerId && findPersonById(partnerId)
-      : pickPartnerForMode(matchMode, people, currentUser.profile.id);
+    const rotationKey = `${topic.id}:${matchMode}`;
+    const partner = (partnerId && findPersonById(partnerId)) || pickPartnerForMode(
+      matchMode,
+      people,
+      currentUser.profile.id,
+      topic.id,
+      topicMatchRotations[rotationKey] ?? 0,
+    );
     if (!partner) {
       setMessage(existingThread ? '会话成员资料暂不可用' : '暂时没有可匹配的讨论对象');
       return;

@@ -177,7 +177,7 @@ function createCard(topic: Topic, stream: AiTopicStream, batch: number, index: n
       supportingText: topic.summary,
       badges: [],
       facts: [{ label: '讨论', value: `${topic.replyCount} 条` }],
-      primaryActionLabel: stream === 'hot' ? '说说你的选择' : '加入讨论',
+      primaryActionLabel: stream === 'hot' ? '说说你的选择' : '立即开聊',
     },
     allowedActions: [FeedAction.VIEW_DETAIL, stream === 'hot' ? FeedAction.VOTE : FeedAction.JOIN_DISCUSSION, FeedAction.SAVE, FeedAction.HIDE, FeedAction.REPORT],
   };
