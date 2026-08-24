@@ -1,0 +1,16 @@
+-- Fix: validate_profile_owner must run as security definer so normal users
+-- can update their own profile row (the auth.users check needs elevated rights).
+create or replace function public.validate_profile_owner()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not new.is_seeded then
+    if not exists (select 1 from auth.users where id = new.id) then
+      raise exception 'profile owner must be an existing user';
+    end if;
+  end if;
+  return new;
+end;
+$$;
