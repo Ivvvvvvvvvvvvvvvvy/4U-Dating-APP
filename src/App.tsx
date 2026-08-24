@@ -9,7 +9,7 @@ import { TopicDetail } from './components/TopicDetail';
 import { Modal } from './components/Modal';
 import { OfflineBanner } from './components/StatusUI';
 import { DemoActionError, runDemoMutation } from './actionController';
-import { ConversationStatus, DiscussionContinueDecision, DiscussionMatchMode, FeedAction, FeedCardType, MatchStatus, MessageDeliveryStatus, MessageKind, ParticipationMode, ThreadAction, ThreadKind, type Activity, type FeedCard, type Message, type Person, type Thread, type Topic, type TopicVoteRecord } from './domain';
+import { ConversationStatus, DiscussionContinueDecision, DiscussionMatchMode, FeedAction, FeedCardType, MatchStatus, MessageDeliveryStatus, MessageKind, ParticipationMode, ThreadAction, ThreadKind, type Activity, type CurrentUser, type FeedCard, type Message, type Person, type Thread, type Topic, type TopicVoteRecord } from './domain';
 import { activities, activityApplications, activityFeed, currentUser, findActivityById, findActivityOpportunityById, findPersonById, findTopicById, getMessagesForThread, messages, people, resolveFeedCardEntity, threads, topics } from './mockData';
 import { counterpartOf, createTopicDiscussion, findActiveTopicDiscussion, initialDiscussionRuntime, type DiscussionRuntime, type TopicMatchSession } from './topicMatch';
 import { pickPartnerForMode, useTopicVotes } from './topicVote';
@@ -24,6 +24,9 @@ import { CreateActivityPage } from './pages/CreateActivityPage';
 import { SearchPage } from './pages/SearchPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { EntryPage } from './pages/EntryPage';
+import { LoginPage } from './pages/LoginPage';
+import { buildCurrentUser, loadUserProfile } from './auth/profile';
+import { signOutSession, useAuth } from './auth/useAuth';
 import { clearActivityDraft, createEmptyActivityDraft, hasStoredActivityDraft, loadActivityDraft, saveActivityDraft } from './activityDraft';
 import { randomId } from './randomId';
 import { findGeneratedTopicById, resolveGeneratedTopicEntity } from './topicGenerator';
@@ -40,6 +43,8 @@ function parentPath(route: AppRoute, state: Record<string, unknown>) {
 export default function App() {
   const { route, location, navigate } = useBrowserRouter();
   const online = useOnlineStatus();
+  const auth = useAuth();
+  const [dbProfile, setDbProfile] = useState<{ person: Person; user: CurrentUser } | null>(null);
   const { values: savedActivities, toggle: toggleSaved } = usePersistentSet('4u:rfc:saved-activities');
   const { values: heartedPeople, toggle: toggleHeart } = usePersistentSet('4u:rfc:hearted-people');
   const { values: followedTopics, toggle: toggleTopic } = usePersistentSet('4u:rfc:followed-topics');
@@ -88,6 +93,16 @@ export default function App() {
     setDraft(loadActivityDraft(route.draftId));
     setSubmissionState('idle');
   }, [route]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (auth.status !== 'signedIn') { setDbProfile(null); return; }
+    void loadUserProfile(auth.user.id).then((loaded) => {
+      if (cancelled || !loaded) return;
+      setDbProfile({ person: loaded.person, user: buildCurrentUser(loaded) });
+    });
+    return () => { cancelled = true; };
+  }, [auth]);
 
   useEffect(() => {
     const canonical = canonicalPath(route);
@@ -316,11 +331,15 @@ export default function App() {
   };
 
   let page: React.ReactNode;
-  if (route.kind === 'entry') page = <EntryPage onGuest={() => go('/home?primary=recommend&secondary=for-you')} onRegister={() => go('/onboarding/welcome')}/>;
+  if (auth.status === 'loading') page = null;
+  else if (route.kind === 'entry') page = auth.status === 'signedIn'
+    ? <HomePage primary="recommend" secondary="for-you" cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>
+    : <EntryPage onGuest={() => go('/home?primary=recommend&secondary=for-you')} onRegister={() => go('/onboarding/welcome')} onLogin={() => go('/login')}/>;
+  else if (route.kind === 'login') page = <LoginPage onBack={() => go('/')} onLogin={() => go('/home?primary=recommend&secondary=for-you')} onGoRegister={() => go('/onboarding/welcome')}/>;
   else if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
   else if (route.kind === 'discover') page = <DiscoverPage segment={route.segment} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go}/>;
   else if (route.kind === 'messages') page = <MessagesPage category={route.category} threads={allThreads} messages={allMessages} people={people} activities={activities} topics={topics} currentUserId={currentUser.profile.id} notifications={demoNotifications} onCategoryChange={(category) => go('/messages?category=' + category)} onOpenThread={(roomType, threadId) => go('/messages/' + roomType + '/' + threadId)} onOpenNotification={() => setMessage('通知详情已读取')}/>;
-  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')}/>;
+  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={dbProfile?.user ?? currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')} onLogout={dbProfile ? () => { void signOutSession(); go('/'); } : undefined}/>;
   else if (route.kind === 'chat') {
     const thread = allThreads.find((item) => item.id === route.roomId);
     const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? (findGeneratedTopicById(thread.topicId) ?? findTopicById(thread.topicId)) : undefined;
@@ -367,7 +386,7 @@ export default function App() {
     <div ref={statusStackRef} className="global-status-stack">
       {!online && <OfflineBanner/>}
     </div>
-    <AppShell active={routeTab(route)} detail={detail} immersive={['entry','chat','create','search','onboarding'].includes(route.kind)} chromeless={route.kind === 'entry' || route.kind === 'onboarding'} viewer={currentUser.profile} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
+    <AppShell active={routeTab(route)} detail={detail} immersive={['entry','login','chat','create','search','onboarding'].includes(route.kind)} chromeless={route.kind === 'entry' || route.kind === 'login' || route.kind === 'onboarding'} viewer={dbProfile?.person ?? currentUser.profile} onNavigate={go} onCreate={() => go('/activities/new/local-draft/1')}>{page}</AppShell>
     {joinConfirm && <JoinConfirmDialog activity={joinConfirm} pending={pending?.key === 'join:' + joinConfirm.id} onCancel={() => setJoinConfirm(null)} onConfirm={() => { const activity = joinConfirm; const result = activity.participationMode === ParticipationMode.OPEN_JOIN ? '已确认参加，席位状态已更新' : activity.participationMode === ParticipationMode.MATCH_FORMATION ? '参与意愿已提交，等待匹配成行' : '申请已提交，等待发起者审核'; void mutate('join:' + activity.id, activity.entityVersion, true, () => { toggleJoined(activity.id); setJoinConfirm(null); }, result); }}/>}
     {heartEducation && <Modal title="心动只属于你" onClose={() => setHeartEducation(null)}><div className="heart-education"><Heart fill="currentColor"/><p>你的选择仅自己可见；只有对方也对你心动，双方才会收到通知并开启会话。</p><span>心动不等于报名，也不会绕过双方同意。</span></div><button className="primary-button" onClick={confirmHeart}>知道了，继续心动</button><button className="text-button" onClick={() => setHeartEducation(null)}>暂不操作</button></Modal>}
     {topicMatch && <TopicMatchDialog session={topicMatch} onCancel={cancelTopicMatch} onReady={() => setTopicMatch((current) => current ? { ...current, phase: 'matched' } : current)} onEnter={enterTopicMatch}/>} 

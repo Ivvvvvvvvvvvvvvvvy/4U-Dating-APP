@@ -1,0 +1,19 @@
+alter table public.profiles drop constraint profiles_id_fkey;
+
+create or replace function public.validate_profile_owner()
+returns trigger
+language plpgsql
+as $$
+begin
+  if not new.is_seeded then
+    if not exists (select 1 from auth.users where id = new.id) then
+      raise exception 'profile owner must be an existing user';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_validate_owner
+  before insert or update on public.profiles
+  for each row execute function public.validate_profile_owner();

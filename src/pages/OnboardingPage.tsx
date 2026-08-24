@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, Eye, Heart, ImagePlus, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, UserRound, UsersRound, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock3, Eye, Heart, ImagePlus, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound, WandSparkles } from 'lucide-react';
 import type { OnboardingStep } from '../router';
+import { RelationshipGoal } from '../domain';
+import { supabase } from '../integrations/supabase/client';
+import { signUpWithEmail } from '../auth/useAuth';
+import { saveOnboardingProfile, zodiacFromBirthDate } from '../auth/profile';
 
 type SaveState = 'saved' | 'saving' | 'offline';
 type Intent = 'LONG_TERM_PARTNER' | 'LONG_TERM_OPEN_TO_SHORT' | 'SHORT_TERM_OPEN_TO_LONG' | 'SHORT_TERM_FUN' | 'NEW_FRIENDS' | 'FIGURING_OUT';
@@ -55,6 +59,14 @@ const intentOptions: { id: Intent; icon: string; label: string }[] = [
   { id: 'NEW_FRIENDS', icon: '👋', label: '结交新朋友' },
   { id: 'FIGURING_OUT', icon: '🤔', label: '我还在思考' },
 ];
+const intentToGoal: Partial<Record<Intent, RelationshipGoal>> = {
+  LONG_TERM_PARTNER: RelationshipGoal.LONG_TERM,
+  LONG_TERM_OPEN_TO_SHORT: RelationshipGoal.SERIOUS_DATING,
+  SHORT_TERM_OPEN_TO_LONG: RelationshipGoal.OPEN_TO_EXPLORE,
+  SHORT_TERM_FUN: RelationshipGoal.OPEN_TO_EXPLORE,
+  NEW_FRIENDS: RelationshipGoal.OPEN_TO_EXPLORE,
+  FIGURING_OUT: RelationshipGoal.OPEN_TO_EXPLORE,
+};
 const orientationOptions = [
   ['HETEROSEXUAL','异性恋','仅会被不同性别吸引的人士'], ['GAY_MAN','男同性恋','会被同性吸引的男性'], ['LESBIAN','女同性恋','会被女性吸引、可能建立浪漫关系的女性'],
   ['BISEXUAL','双性恋','可能被一种以上性别吸引的人士'], ['ASEXUAL','无性恋','很少或不会感受到性吸引的人士'], ['DEMISEXUAL','半性恋','通常在深厚情感联系后感受到性吸引'],
@@ -71,7 +83,7 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
   const [draft, setDraft] = useState<OnboardingDraft>(() => ({ ...initialDraft, ...loadSafeDraft(), account: '', code: '', birthday: '', prompt: '', bio: '' }));
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const index = steps.indexOf(step);
   const displayIndex = Math.max(0, index) + 1;
   const update = <K extends keyof OnboardingDraft>(key: K, value: OnboardingDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
@@ -100,8 +112,39 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
   const goNext = () => {
     setError('');
     if (!canContinue) { setError(stepError(step)); return; }
-    if (step === 'privacy-preview') { onNavigate('/onboarding/status'); return; }
+    if (step === 'privacy-preview') { void submitProfile(); return; }
     const next = steps[index + 1]; if (next) onNavigate(`/onboarding/${next}`);
+  };
+
+  const submitProfile = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('登录状态已失效，请重新登录');
+      await saveOnboardingProfile(user.id, {
+        displayName: draft.nickname.trim(),
+        city: draft.city.trim(),
+        occupation: draft.occupation.trim(),
+        bio: draft.bio.trim(),
+        relationshipGoal: (draft.intent ? intentToGoal[draft.intent] : undefined) ?? RelationshipGoal.OPEN_TO_EXPLORE,
+        mbti: draft.mbti,
+        zodiac: zodiacFromBirthDate(draft.birthday) ?? '',
+        interests: draft.interests,
+        promptAnswer: draft.prompt.trim(),
+        birth_date: draft.birthday,
+        meet_genders: draft.meetGenders,
+        intent_goals: draft.intent ? [draft.intent] : [],
+        showAge: draft.showAge,
+        showZodiac: draft.showZodiac,
+        showOrientation: draft.showOrientation,
+      });
+      onNavigate('/onboarding/status');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : '资料提交失败，请重试');
+    } finally {
+      setSubmitting(false);
+    }
   };
   const goBack = () => index > 0 ? onNavigate(`/onboarding/${steps[index - 1]}`) : onNavigate('/home?primary=topics&secondary=hot');
 
@@ -118,7 +161,7 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
       {step !== 'welcome' && <div className="onboarding-progress" aria-label={`第 ${displayIndex} 步，共 11 步`}><span style={{ width: `${displayIndex / 11 * 100}%` }}/></div>}
       <main className="onboarding-main" id="main-content">
         {step === 'welcome' && <Welcome draft={draft} update={update}/>} 
-        {step === 'account' && <Account draft={draft} update={update} codeSent={codeSent} onSendCode={() => { if (!draft.account.trim()) return setError('请先填写手机号或邮箱'); setCodeSent(true); setError(''); }} />}
+        {step === 'account' && <Account draft={draft} update={update} setError={setError} />}
         {step === 'adult-check' && <AdultCheck draft={draft} update={update} age={age}/>} 
         {step === 'identity' && <Identity draft={draft} update={update}/>} 
         {step === 'preferences' && <Preferences draft={draft} update={update}/>} 
@@ -135,7 +178,7 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
           <button className="onboarding-primary" disabled={!canContinue} onClick={goNext}>开始建档 <ChevronRight size={18}/></button>
           <button className="onboarding-secondary" onClick={() => onNavigate('/home?primary=topics&secondary=hot')}>先逛逛公开内容</button>
         </> : <>
-          <button className="onboarding-primary" disabled={!canContinue} onClick={goNext}>{step === 'privacy-preview' ? '提交资料审核' : '继续'} <ChevronRight size={18}/></button>
+          <button className="onboarding-primary" disabled={!canContinue || submitting} onClick={goNext}>{step === 'privacy-preview' ? (submitting ? '提交中…' : '提交资料审核') : '继续'} <ChevronRight size={18}/></button>
           <button className="onboarding-secondary" onClick={() => onNavigate('/home?primary=topics&secondary=hot')}>稍后完成，先浏览公开内容</button>
         </>}
       </footer>
@@ -158,12 +201,45 @@ function Welcome({ draft, update }: { draft: OnboardingDraft; update: Update }) 
     <label className="consent-row"><input type="checkbox" checked={draft.acceptedRules} onChange={(event) => update('acceptedRules', event.target.checked)}/><span>我已阅读并同意《社区规则》</span></label>
   </div>;
 }
-function Account({ draft, update, codeSent, onSendCode }: { draft: OnboardingDraft; update: Update; codeSent: boolean; onSendCode: () => void }) {
+function Account({ draft, update, setError }: { draft: OnboardingDraft; update: Update; setError: (value: string) => void }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+
+  const continueAccount = async () => {
+    setError('');
+    if (draft.accountMode === 'email') {
+      if (!draft.account.trim()) { setError('请先填写邮箱'); return; }
+      if (password.length < 6) { setError('密码至少需要 6 位'); return; }
+      if (password !== confirm) { setError('两次输入的密码不一致'); return; }
+      setBusy(true);
+      const { error: authError } = await signUpWithEmail(draft.account.trim(), password);
+      setBusy(false);
+      if (authError) { setError(authError); return; }
+      update('verified', true);
+      return;
+    }
+    if (!draft.account.trim()) { setError('请先填写手机号'); return; }
+    if (!codeSent) { setCodeSent(true); return; }
+    if (draft.code.length >= 4) update('verified', true);
+    else setError('请输入 6 位验证码');
+  };
+
   return <><StepIntro eyebrow="1 / 11 · 账号验证" title="保存你的建档进度" text="验证一种联系方式，就能跨设备安全续填。" privacy="联系方式仅用于账号与安全，不会公开"/>
     <div className="segmented"><button className={draft.accountMode==='email'?'is-active':''} onClick={()=>update('accountMode','email')}>邮箱</button><button className={draft.accountMode==='phone'?'is-active':''} onClick={()=>update('accountMode','phone')}>手机号</button></div>
-    <label className="field"><span>{draft.accountMode==='email'?'邮箱':'手机号'} <b>必填</b></span><div><Mail size={17}/><input value={draft.account} placeholder={draft.accountMode==='email'?'name@example.com':'请输入手机号'} onChange={(e)=>update('account',e.target.value)}/></div></label>
-    <div className="verification-row"><label className="field"><span>验证码</span><div><input inputMode="numeric" maxLength={6} value={draft.code} placeholder="6 位验证码" onChange={(e)=>update('code',e.target.value)}/></div></label><button onClick={onSendCode}>{codeSent?'重新发送':'发送验证码'}</button></div>
-    {codeSent && <button className="verify-button" onClick={()=>update('verified',draft.code.length>=4)}><Check size={16}/>{draft.verified?'验证成功':'验证并继续'}</button>}
+    {draft.accountMode === 'email' ? <>
+      <label className="field"><span>邮箱 <b>必填</b></span><div><Mail size={17}/><input type="email" autoComplete="email" value={draft.account} placeholder="name@example.com" onChange={(e)=>update('account',e.target.value)}/></div></label>
+      <div className="field-grid">
+        <label className="field"><span>设置密码 <b>必填</b></span><div><LockKeyhole size={17}/><input type="password" autoComplete="new-password" value={password} placeholder="至少 6 位" onChange={(e)=>setPassword(e.target.value)}/></div></label>
+        <label className="field"><span>确认密码 <b>必填</b></span><div><LockKeyhole size={17}/><input type="password" autoComplete="new-password" value={confirm} placeholder="再次输入" onChange={(e)=>setConfirm(e.target.value)}/></div></label>
+      </div>
+      <button className="verify-button" disabled={busy || draft.verified} onClick={() => void continueAccount()}><UserPlus size={16}/>{busy ? '创建账号中…' : draft.verified ? '账号已创建' : '创建账号并继续'}</button>
+    </> : <>
+      <label className="field"><span>手机号 <b>必填</b></span><div><Mail size={17}/><input value={draft.account} placeholder="请输入手机号" onChange={(e)=>update('account',e.target.value)}/></div></label>
+      <div className="verification-row"><label className="field"><span>验证码</span><div><input inputMode="numeric" maxLength={6} value={draft.code} placeholder="6 位验证码" onChange={(e)=>update('code',e.target.value)}/></div></label><button onClick={() => { if (!draft.account.trim()) return setError('请先填写手机号'); setCodeSent(true); setError(''); }}>{codeSent?'重新发送':'发送验证码'}</button></div>
+      {codeSent && <button className="verify-button" onClick={() => void continueAccount()}><Check size={16}/>{draft.verified?'验证成功':'验证并继续'}</button>}
+    </>}
   </>;
 }
 function AdultCheck({ draft, update, age }: { draft: OnboardingDraft; update: Update; age: number | null }) {

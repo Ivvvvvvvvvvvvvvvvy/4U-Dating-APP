@@ -1,6 +1,6 @@
-import { ArrowRight, Eye, Heart, ShieldCheck, Sparkles, UserPlus, UsersRound } from 'lucide-react';
+import { ArrowRight, Eye, Heart, LogIn, ShieldCheck, Sparkles, UserPlus, UsersRound } from 'lucide-react';
 
-export function EntryPage({ onGuest, onRegister }: { onGuest: () => void; onRegister: () => void }) {
+export function EntryPage({ onGuest, onRegister, onLogin }: { onGuest: () => void; onRegister: () => void; onLogin: () => void }) {
   return (
     <section className="entry-page screen-enter" aria-labelledby="entry-title">
       <header className="entry-brand" aria-label="4U">
@@ -31,6 +31,11 @@ export function EntryPage({ onGuest, onRegister }: { onGuest: () => void; onRegi
           <button type="button" className="entry-choice entry-choice--guest" onClick={onGuest}>
             <span className="entry-choice-icon"><Eye /></span>
             <span><strong>以游客身份浏览</strong><small>先看看公开的人气话题与活动</small></span>
+            <ArrowRight />
+          </button>
+          <button type="button" className="entry-choice entry-choice--login" onClick={onLogin}>
+            <span className="entry-choice-icon"><LogIn /></span>
+            <span><strong>登录</strong><small>已有账号，继续我的资料与消息</small></span>
             <ArrowRight />
           </button>
         </div>

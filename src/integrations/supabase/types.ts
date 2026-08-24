@@ -3360,7 +3360,115 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profile_preferences: {
+        Row: {
+          accepted_relationship_goals: Json
+          birth_date: string | null
+          candidate_preferences: Json
+          created_at: string
+          desired_genders: Json
+          id: string
+          show_age: boolean
+          show_orientation: boolean
+          show_zodiac: boolean
+          updated_at: string
+        }
+        Insert: {
+          accepted_relationship_goals?: Json
+          birth_date?: string | null
+          candidate_preferences?: Json
+          created_at?: string
+          desired_genders?: Json
+          id: string
+          show_age?: boolean
+          show_orientation?: boolean
+          show_zodiac?: boolean
+          updated_at?: string
+        }
+        Update: {
+          accepted_relationship_goals?: Json
+          birth_date?: string | null
+          candidate_preferences?: Json
+          created_at?: string
+          desired_genders?: Json
+          id?: string
+          show_age?: boolean
+          show_orientation?: boolean
+          show_zodiac?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_preferences_id_fkey"
+            columns: ["id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bio: string | null
+          city: string | null
+          created_at: string
+          display_name: string
+          entity_version: number
+          id: string
+          interests: Json
+          is_seeded: boolean
+          mbti: string | null
+          occupation: string | null
+          person_key: string | null
+          photos: Json
+          profile_status: string
+          prompts: Json
+          relationship_goal: string | null
+          updated_at: string
+          verification: Json
+          zodiac: string | null
+        }
+        Insert: {
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string
+          entity_version?: number
+          id: string
+          interests?: Json
+          is_seeded?: boolean
+          mbti?: string | null
+          occupation?: string | null
+          person_key?: string | null
+          photos?: Json
+          profile_status?: string
+          prompts?: Json
+          relationship_goal?: string | null
+          updated_at?: string
+          verification?: Json
+          zodiac?: string | null
+        }
+        Update: {
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          display_name?: string
+          entity_version?: number
+          id?: string
+          interests?: Json
+          is_seeded?: boolean
+          mbti?: string | null
+          occupation?: string | null
+          person_key?: string | null
+          photos?: Json
+          profile_status?: string
+          prompts?: Json
+          relationship_goal?: string | null
+          updated_at?: string
+          verification?: Json
+          zodiac?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

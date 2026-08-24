@@ -9,6 +9,7 @@ import {
   HeartHandshake,
   KeyRound,
   LockKeyhole,
+  LogOut,
   MapPin,
   ShieldCheck,
   Sparkles,
@@ -38,6 +39,7 @@ export interface ProfilePageProps {
   readonly onEditRelationship?: () => void;
   readonly onOpenAsset?: (asset: ProfileAssetKey) => void;
   readonly onOpenPermission?: (tier: ProfilePermissionTier) => void;
+  readonly onLogout?: () => void;
 }
 
 const sectionItems: readonly {
@@ -67,6 +69,7 @@ export function ProfilePage({
   onEditRelationship,
   onOpenAsset,
   onOpenPermission,
+  onLogout,
 }: ProfilePageProps) {
   const activeSection = isProfileSection(section) ? section : 'profile';
   const counts: ProfileAssetCounts = {
@@ -112,6 +115,7 @@ export function ProfilePage({
         {activeSection === 'assets' && <AssetOverview counts={counts} onOpen={onOpenAsset} />}
         {activeSection === 'permissions' && <PermissionOverview user={user} onOpen={onOpenPermission} />}
       </main>
+      {onLogout && <button type="button" className="logout-button" onClick={onLogout}><LogOut size={17}/>退出登录</button>}
     </section>
   );
 }
