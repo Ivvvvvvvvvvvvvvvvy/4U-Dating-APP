@@ -48,8 +48,8 @@ export function ageFromBirthDate(birth: string): number | null {
   return Number.isFinite(age) && age >= 0 ? age : null;
 }
 
-export function profileRowToPerson(row: ProfileRow, birth?: string | null): Person {
-  const age = birth ? ageFromBirthDate(birth) : null;
+export function profileRowToPerson(row: ProfileRow, birth?: string | null, displayAge?: number | null): Person {
+  const age = displayAge ?? (birth ? ageFromBirthDate(birth) : null);
   return {
     entityType: FeedCardType.PERSON,
     id: ('person_' + row.id) as PersonId,
@@ -109,6 +109,7 @@ export function buildCurrentUser(loaded: LoadedUserProfile): CurrentUser {
     privacy: {
       showAge: preferences?.show_age ?? true,
       showZodiac: preferences?.show_zodiac ?? false,
+      showOrientation: preferences?.show_orientation ?? false,
       showInConfirmedParticipantLists: true,
       exactLocationSharing: 'CONFIRMED_ACTIVITY_ONLY',
       lockScreenMessagePreview: 'HIDDEN',
@@ -167,5 +168,57 @@ export async function saveOnboardingProfile(userId: string, payload: OnboardingP
       show_zodiac: payload.showZodiac,
       show_orientation: payload.showOrientation,
     });
+  if (preferencesError) throw preferencesError;
+}
+
+export interface ProfileEditPayload {
+  displayName: string;
+  city: string;
+  occupation: string;
+  bio: string;
+  relationshipGoal: RelationshipGoal;
+  mbti: string;
+  interests: string[];
+  promptAnswer: string;
+  showAge: boolean;
+  showZodiac: boolean;
+  showOrientation: boolean;
+}
+
+/** Edit the public profile fields + privacy toggles. Never touches photos, verification or profile_status. */
+export async function saveProfileEdit(userId: string, payload: ProfileEditPayload): Promise<void> {
+  const { data: preferences } = await supabase
+    .from('profile_preferences')
+    .select('birth_date')
+    .eq('id', userId)
+    .maybeSingle();
+  const birth = preferences?.birth_date ?? null;
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      display_name: payload.displayName.trim(),
+      city: payload.city.trim(),
+      occupation: payload.occupation.trim(),
+      bio: payload.bio.trim(),
+      relationship_goal: payload.relationshipGoal,
+      mbti: payload.mbti,
+      zodiac: birth ? (zodiacFromBirthDate(birth) ?? '') : '',
+      interests: payload.interests,
+      prompts: payload.promptAnswer.trim()
+        ? [{ prompt: '周末最想和另一个人一起做什么？', answer: payload.promptAnswer.trim() }]
+        : [],
+    })
+    .eq('id', userId);
+  if (profileError) throw profileError;
+
+  const { error: preferencesError } = await supabase
+    .from('profile_preferences')
+    .update({
+      show_age: payload.showAge,
+      show_zodiac: payload.showZodiac,
+      show_orientation: payload.showOrientation,
+    })
+    .eq('id', userId);
   if (preferencesError) throw preferencesError;
 }

@@ -3451,6 +3451,7 @@ export type Database = {
           bio: string | null
           city: string | null
           created_at: string
+          display_age: number | null
           display_name: string
           entity_version: number
           id: string
@@ -3472,6 +3473,7 @@ export type Database = {
           bio?: string | null
           city?: string | null
           created_at?: string
+          display_age?: number | null
           display_name?: string
           entity_version?: number
           id: string
@@ -3493,6 +3495,7 @@ export type Database = {
           bio?: string | null
           city?: string | null
           created_at?: string
+          display_age?: number | null
           display_name?: string
           entity_version?: number
           id?: string

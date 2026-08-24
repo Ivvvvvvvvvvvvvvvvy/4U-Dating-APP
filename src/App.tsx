@@ -10,7 +10,7 @@ import { Modal } from './components/Modal';
 import { OfflineBanner } from './components/StatusUI';
 import { DemoActionError, runDemoMutation } from './actionController';
 import { ConversationStatus, DiscussionContinueDecision, DiscussionMatchMode, FeedAction, FeedCardType, MatchStatus, MessageDeliveryStatus, MessageKind, ParticipationMode, ThreadAction, ThreadKind, type Activity, type CurrentUser, type FeedCard, type Message, type Person, type Thread, type Topic, type TopicVoteRecord } from './domain';
-import { activities, activityApplications, activityFeed, currentUser, findActivityById, findActivityOpportunityById, findPersonById, findTopicById, getMessagesForThread, messages, people, resolveFeedCardEntity, threads, topics } from './mockData';
+import { activities, activityApplications, activityFeed, currentUser, findActivityById, findActivityOpportunityById, findPersonById, findTopicById, getMessagesForThread, messages, people, personFeed, resolveFeedCardEntity, threads, topics } from './mockData';
 import { counterpartOf, createTopicDiscussion, findActiveTopicDiscussion, initialDiscussionRuntime, type DiscussionRuntime, type TopicMatchSession } from './topicMatch';
 import { pickPartnerForMode, useTopicVotes } from './topicVote';
 import { canonicalPath, parseRoute, routeTab, sanitizeRoute, type AppRoute, useBrowserRouter } from './router';
@@ -26,8 +26,10 @@ import { OnboardingPage } from './pages/OnboardingPage';
 import { EntryPage } from './pages/EntryPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminPage } from './pages/AdminPage';
+import { ProfileEditPage } from './pages/ProfileEditPage';
 import { buildCurrentUser, loadUserProfile } from './auth/profile';
 import { signOutSession, useAuth } from './auth/useAuth';
+import { loadRecommendablePeople, type DiscoveryResult } from './auth/discovery';
 import { clearActivityDraft, createEmptyActivityDraft, hasStoredActivityDraft, loadActivityDraft, saveActivityDraft } from './activityDraft';
 import { randomId } from './randomId';
 import { findGeneratedTopicById, resolveGeneratedTopicEntity } from './topicGenerator';
@@ -46,6 +48,7 @@ export default function App() {
   const online = useOnlineStatus();
   const auth = useAuth();
   const [dbProfile, setDbProfile] = useState<{ person: Person; user: CurrentUser; isAdmin: boolean } | null>(null);
+  const [realDiscovery, setRealDiscovery] = useState<DiscoveryResult>({ people: [], cards: [] });
   const { values: savedActivities, toggle: toggleSaved } = usePersistentSet('4u:rfc:saved-activities');
   const { values: heartedPeople, toggle: toggleHeart } = usePersistentSet('4u:rfc:hearted-people');
   const { values: followedTopics, toggle: toggleTopic } = usePersistentSet('4u:rfc:followed-topics');
@@ -102,6 +105,15 @@ export default function App() {
       if (cancelled || !loaded) return;
       setDbProfile({ person: loaded.person, user: buildCurrentUser(loaded), isAdmin: loaded.isAdmin });
     });
+    return () => { cancelled = true; };
+  }, [auth]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (auth.status !== 'signedIn') { setRealDiscovery({ people: [], cards: [] }); return; }
+    void loadRecommendablePeople(auth.user.id)
+      .then((result) => { if (!cancelled) setRealDiscovery(result); })
+      .catch(() => { if (!cancelled) setRealDiscovery({ people: [], cards: [] }); });
     return () => { cancelled = true; };
   }, [auth]);
 
@@ -296,8 +308,8 @@ export default function App() {
     onHeartPerson: heartPerson,
     onFollowTopic: followTopic,
     onOpenActivity: (activity) => navigate('/activities/' + activity.id, { state: { from: location.pathname + location.search, scrollY: rememberCurrentScroll() } }),
-    resolveEntity: (card) => resolveGeneratedTopicEntity(card) ?? resolveFeedCardEntity(card),
-  }), [followedTopics, heartPerson, heartedPeople, location.pathname, location.search, navigate, openFromFeed, pending?.key, rememberCurrentScroll, saveActivity, savedActivities]);
+    resolveEntity: (card) => resolveGeneratedTopicEntity(card) ?? resolveFeedCardEntity(card) ?? realDiscovery.people.find((person) => person.id === card.entityId),
+  }), [followedTopics, heartPerson, heartedPeople, location.pathname, location.search, navigate, openFromFeed, pending?.key, realDiscovery.people, rememberCurrentScroll, saveActivity, savedActivities]);
 
   const refresh = () => { setRefreshing(true); window.setTimeout(() => { setRefreshing(false); setMessage('已刷新为最新安全快照'); }, 650); };
   const routeBack = () => {
@@ -334,14 +346,15 @@ export default function App() {
   let page: React.ReactNode;
   if (auth.status === 'loading') page = null;
   else if (route.kind === 'entry') page = auth.status === 'signedIn'
-    ? <HomePage primary="recommend" secondary="for-you" cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>
+    ? <HomePage primary="recommend" secondary="for-you" cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} extraPersonFeedCards={realDiscovery.cards} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>
     : <EntryPage onGuest={() => go('/home?primary=recommend&secondary=for-you')} onRegister={() => go('/onboarding/welcome')} onLogin={() => go('/login')}/>;
   else if (route.kind === 'login') page = <LoginPage onBack={() => go('/')} onLogin={() => go('/home?primary=recommend&secondary=for-you')} onGoRegister={() => go('/onboarding/welcome')}/>;
   else if (route.kind === 'admin') page = <AdminPage onBack={routeBack}/>;
-  else if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
-  else if (route.kind === 'discover') page = <DiscoverPage segment={route.segment} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go}/>;
+  else if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} extraPersonFeedCards={realDiscovery.cards} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
+  else if (route.kind === 'discover') page = <DiscoverPage segment={route.segment} cards={[...personFeed, ...realDiscovery.cards]} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go}/>;
   else if (route.kind === 'messages') page = <MessagesPage category={route.category} threads={allThreads} messages={allMessages} people={people} activities={activities} topics={topics} currentUserId={currentUser.profile.id} notifications={demoNotifications} onCategoryChange={(category) => go('/messages?category=' + category)} onOpenThread={(roomType, threadId) => go('/messages/' + roomType + '/' + threadId)} onOpenNotification={() => setMessage('通知详情已读取')}/>;
-  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={dbProfile?.user ?? currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')} onSwitchAccount={dbProfile ? () => { void signOutSession(); go('/login'); } : undefined} userId={auth.status === 'signedIn' ? auth.user.id : undefined} isAdmin={dbProfile?.isAdmin} onOpenAdmin={dbProfile?.isAdmin ? () => navigate('/admin', { state: { from: location.pathname + location.search } }) : undefined}/>;
+  else if (route.kind === 'me' && route.section === 'edit' && dbProfile) page = <ProfileEditPage person={dbProfile.person} privacy={dbProfile.user.privacy} userId={auth.status === 'signedIn' ? auth.user.id : ''} onSaved={() => { if (auth.status === 'signedIn') { void loadUserProfile(auth.user.id).then((loaded) => { if (loaded) setDbProfile({ person: loaded.person, user: buildCurrentUser(loaded), isAdmin: loaded.isAdmin }); }); } setMessage('资料已更新'); go('/me/profile'); }} onCancel={() => go('/me/profile')}/>;
+  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={dbProfile?.user ?? currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={dbProfile ? () => go('/me/edit') : undefined} onEditRelationship={dbProfile ? () => go('/me/edit') : undefined} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')} onSwitchAccount={dbProfile ? () => { void signOutSession(); go('/login'); } : undefined} userId={auth.status === 'signedIn' ? auth.user.id : undefined} isAdmin={dbProfile?.isAdmin} onOpenAdmin={dbProfile?.isAdmin ? () => navigate('/admin', { state: { from: location.pathname + location.search } }) : undefined}/>;
   else if (route.kind === 'chat') {
     const thread = allThreads.find((item) => item.id === route.roomId);
     const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? (findGeneratedTopicById(thread.topicId) ?? findTopicById(thread.topicId)) : undefined;
@@ -362,7 +375,7 @@ export default function App() {
     if (activity) { const card=activityFeed.find((item)=>item.entityId===activity.id); const hasApplication=knownApplicationIds.has(activity.id)||joinedActivities.has(activity.id); const canJoin=!hasApplication&&Boolean(card&&(card.allowedActions as readonly FeedAction[]).some((action)=>action===FeedAction.JOIN_ACTIVITY||action===FeedAction.APPLY_TO_ACTIVITY)); const canMessageParticipants=conversationEligibleActivityIds.has(activity.id); detail = <ActivityDetail activity={activity} saved={savedActivities.has(activity.id)} joined={hasApplication} canJoin={canJoin} joining={pending?.key === 'join:' + activity.id} onBack={routeBack} onSave={() => saveActivity(activity)} onJoin={() => hasApplication ? setMessage('当前已有申请或参与记录') : canJoin && setJoinConfirm(activity)} onOpenParticipant={(person) => person.id === currentUser.profile.id ? go('/me/profile') : navigate('/people/' + person.id, { state: { from: location.pathname + location.search, activityId: activity.id, canStartConversation: canMessageParticipants } })}/>; }
     else if (opportunity) detail = <OpportunityDetail activity={opportunity} onBack={routeBack} onCreate={() => go('/activities/new/local-draft/1')}/>;
   } else if (route.kind === 'person') {
-    const person = findPersonById(route.id as never);
+    const person = findPersonById(route.id as never) ?? realDiscovery.people.find((item) => item.id === route.id);
     const hasConversation = person && allThreads.some((thread) => thread.kind === ThreadKind.MATCH && thread.participantIds.includes(person.id) && thread.participantIds.includes(currentUser.profile.id));
     const sourceActivity = typeof location.state.activityId === 'string' ? findActivityById(location.state.activityId as never) : undefined;
     const canStartFromActivity = Boolean(sourceActivity
@@ -378,8 +391,8 @@ export default function App() {
   if (detail && !['home','discover','messages','me'].includes(route.kind)) {
     const from = typeof location.state.from === 'string' ? location.state.from : parentPath(route, location.state);
     const background = parseBackground(from);
-    if (background.kind === 'home') page = <HomePage primary={background.primary} secondary={background.secondary} cardActions={cardActions} onRetry={refresh} onNavigate={go} onSearch={() => go('/search')} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
-    else if (background.kind === 'discover') page = <DiscoverPage segment={background.segment} cardActions={cardActions} onRetry={refresh} onNavigate={go}/>;
+    if (background.kind === 'home') page = <HomePage primary={background.primary} secondary={background.secondary} cardActions={cardActions} onRetry={refresh} onNavigate={go} extraPersonFeedCards={realDiscovery.cards} onSearch={() => go('/search')} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
+    else if (background.kind === 'discover') page = <DiscoverPage segment={background.segment} cards={[...personFeed, ...realDiscovery.cards]} cardActions={cardActions} onRetry={refresh} onNavigate={go}/>;
   }
   if (!detail && ['activity','person','topic'].includes(route.kind)) page = <NotFound onBack={routeBack}/>;
 

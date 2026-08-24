@@ -1,0 +1,32 @@
+-- Public derived age for discoverable user cards (birth_date itself stays private)
+alter table public.profiles add column if not exists display_age int;
+
+create or replace function public.sync_display_age()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public.profiles
+  set display_age = case
+    when new.show_age and new.birth_date is not null
+      then extract(year from age(current_date, new.birth_date))::int
+  end
+  where id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists prefs_sync_display_age on public.profile_preferences;
+create trigger prefs_sync_display_age
+  after insert or update on public.profile_preferences
+  for each row execute function public.sync_display_age();
+
+-- Backfill existing users
+update public.profiles p
+set display_age = case
+  when pp.show_age and pp.birth_date is not null
+    then extract(year from age(current_date, pp.birth_date))::int
+end
+from public.profile_preferences pp
+where pp.id = p.id;

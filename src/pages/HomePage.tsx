@@ -12,6 +12,7 @@ import {
   FeedReasonCode,
   TopicKind,
   type FeedCard,
+  type PersonFeedCard,
 } from '../domain';
 import { activityFeed, currentUser, personFeed, topicFeed } from '../mockData';
 import { createRecommendationFeed, createSeededRandom, RECOMMENDATION_PAGE_SIZE } from '../recommendationFeed';
@@ -179,6 +180,7 @@ export type HomePageProps = {
   loading?: boolean;
   error?: boolean | string;
   empty?: boolean;
+  extraPersonFeedCards?: readonly PersonFeedCard[];
   onRetry: () => void;
   onNavigate: (path: string) => void;
   onSearch: () => void;
@@ -193,6 +195,7 @@ export function HomePage({
   loading = false,
   error = false,
   empty = false,
+  extraPersonFeedCards,
   onRetry,
   onNavigate,
   onSearch,
@@ -202,10 +205,10 @@ export function HomePage({
   const [recommendationSeed] = useState(sessionRecommendationSeed);
   const recommendationCards = useMemo(
     () => createRecommendationFeed(
-      { people: personFeed, activities: activityFeed, topics: topicFeed },
+      { people: [...personFeed, ...(extraPersonFeedCards ?? [])], activities: activityFeed, topics: topicFeed },
       createSeededRandom(recommendationSeed),
     ),
-    [recommendationSeed],
+    [recommendationSeed, extraPersonFeedCards],
   );
   const recommendationRouteKey = `${primary}:${secondary}`;
   const [recommendationPage, setRecommendationPage] = useState({ key: recommendationRouteKey, count: RECOMMENDATION_PAGE_SIZE });

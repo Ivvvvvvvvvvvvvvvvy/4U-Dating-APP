@@ -808,6 +808,7 @@ export type Message =
 export interface CurrentUserPrivacySettings {
   readonly showAge: boolean;
   readonly showZodiac: boolean;
+  readonly showOrientation: boolean;
   readonly showInConfirmedParticipantLists: boolean;
   readonly exactLocationSharing: 'CONFIRMED_ACTIVITY_ONLY';
   readonly lockScreenMessagePreview: 'HIDDEN';

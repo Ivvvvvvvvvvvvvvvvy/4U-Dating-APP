@@ -127,6 +127,7 @@ export const currentUser: CurrentUser = {
   privacy: {
     showAge: true,
     showZodiac: true,
+    showOrientation: false,
     showInConfirmedParticipantLists: true,
     exactLocationSharing: 'CONFIRMED_ACTIVITY_ONLY',
     lockScreenMessagePreview: 'HIDDEN',
