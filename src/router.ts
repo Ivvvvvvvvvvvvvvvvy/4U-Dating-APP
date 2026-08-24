@@ -13,6 +13,7 @@ export type OnboardingStep = 'welcome' | 'account' | 'adult-check' | 'identity' 
 export type AppRoute =
   | { kind: 'entry' }
   | { kind: 'login' }
+  | { kind: 'admin' }
   | { kind: 'home'; primary: HomePrimary; secondary: HomeSecondary }
   | { kind: 'discover'; segment: DiscoverSegment }
   | { kind: 'messages'; category: MessageCategory }
@@ -76,6 +77,8 @@ export function parseRoute(pathname: string, search = ''): AppRoute {
 
   if (segments[0] === 'login') return { kind: 'login' };
 
+  if (segments[0] === 'admin') return { kind: 'admin' };
+
   if (segments[0] === 'home') {
     const rawPrimary = params.get('primary');
     const primary: HomePrimary = isOneOf(rawPrimary, ['recommend', 'activities', 'topics']) ? rawPrimary : 'recommend';
@@ -120,6 +123,7 @@ export function canonicalPath(route: AppRoute): string {
   switch (route.kind) {
     case 'entry': return '/';
     case 'login': return '/login';
+    case 'admin': return '/admin';
     case 'home': return '/home?primary=' + route.primary + '&secondary=' + route.secondary;
     case 'discover': return '/discover?segment=' + route.segment;
     case 'messages': return '/messages?category=' + route.category;
@@ -137,7 +141,7 @@ export function canonicalPath(route: AppRoute): string {
 export function routeTab(route: AppRoute): 'home' | 'discover' | 'messages' | 'me' {
   if (route.kind === 'discover' || route.kind === 'person') return 'discover';
   if (route.kind === 'messages' || route.kind === 'chat') return 'messages';
-  if (route.kind === 'me') return 'me';
+  if (route.kind === 'me' || route.kind === 'admin') return 'me';
   return 'home';
 }
 

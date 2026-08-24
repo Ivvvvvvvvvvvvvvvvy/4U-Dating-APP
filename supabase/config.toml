@@ -1,1 +1,4 @@
 project_id = "spb-t4n3o8437h65x8i6"
+
+[functions.admin-photo]
+verify_jwt = true

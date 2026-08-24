@@ -3360,6 +3360,46 @@ export type Database = {
   }
   public: {
     Tables: {
+      photos: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: string
+          profile_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          storage_path: string
+        }
+        Insert: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          storage_path: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photos_profile_id_fkey"
+            columns: ["profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_preferences: {
         Row: {
           accepted_relationship_goals: Json
@@ -3415,6 +3455,7 @@ export type Database = {
           entity_version: number
           id: string
           interests: Json
+          is_admin: boolean
           is_seeded: boolean
           mbti: string | null
           occupation: string | null
@@ -3435,6 +3476,7 @@ export type Database = {
           entity_version?: number
           id: string
           interests?: Json
+          is_admin?: boolean
           is_seeded?: boolean
           mbti?: string | null
           occupation?: string | null
@@ -3455,6 +3497,7 @@ export type Database = {
           entity_version?: number
           id?: string
           interests?: Json
+          is_admin?: boolean
           is_seeded?: boolean
           mbti?: string | null
           occupation?: string | null
@@ -3474,7 +3517,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { uid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -25,6 +25,7 @@ import { SearchPage } from './pages/SearchPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { EntryPage } from './pages/EntryPage';
 import { LoginPage } from './pages/LoginPage';
+import { AdminPage } from './pages/AdminPage';
 import { buildCurrentUser, loadUserProfile } from './auth/profile';
 import { signOutSession, useAuth } from './auth/useAuth';
 import { clearActivityDraft, createEmptyActivityDraft, hasStoredActivityDraft, loadActivityDraft, saveActivityDraft } from './activityDraft';
@@ -44,7 +45,7 @@ export default function App() {
   const { route, location, navigate } = useBrowserRouter();
   const online = useOnlineStatus();
   const auth = useAuth();
-  const [dbProfile, setDbProfile] = useState<{ person: Person; user: CurrentUser } | null>(null);
+  const [dbProfile, setDbProfile] = useState<{ person: Person; user: CurrentUser; isAdmin: boolean } | null>(null);
   const { values: savedActivities, toggle: toggleSaved } = usePersistentSet('4u:rfc:saved-activities');
   const { values: heartedPeople, toggle: toggleHeart } = usePersistentSet('4u:rfc:hearted-people');
   const { values: followedTopics, toggle: toggleTopic } = usePersistentSet('4u:rfc:followed-topics');
@@ -99,7 +100,7 @@ export default function App() {
     if (auth.status !== 'signedIn') { setDbProfile(null); return; }
     void loadUserProfile(auth.user.id).then((loaded) => {
       if (cancelled || !loaded) return;
-      setDbProfile({ person: loaded.person, user: buildCurrentUser(loaded) });
+      setDbProfile({ person: loaded.person, user: buildCurrentUser(loaded), isAdmin: loaded.isAdmin });
     });
     return () => { cancelled = true; };
   }, [auth]);
@@ -336,10 +337,11 @@ export default function App() {
     ? <HomePage primary="recommend" secondary="for-you" cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>
     : <EntryPage onGuest={() => go('/home?primary=recommend&secondary=for-you')} onRegister={() => go('/onboarding/welcome')} onLogin={() => go('/login')}/>;
   else if (route.kind === 'login') page = <LoginPage onBack={() => go('/')} onLogin={() => go('/home?primary=recommend&secondary=for-you')} onGoRegister={() => go('/onboarding/welcome')}/>;
+  else if (route.kind === 'admin') page = <AdminPage onBack={routeBack}/>;
   else if (route.kind === 'home') page = <HomePage primary={route.primary} secondary={route.secondary} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go} onSearch={() => navigate('/search', { state: { from: location.pathname + location.search } })} onNotifications={() => go('/messages?category=notifications')} onCreate={() => go('/activities/new/local-draft/1')}/>;
   else if (route.kind === 'discover') page = <DiscoverPage segment={route.segment} cardActions={cardActions} loading={refreshing} onRetry={refresh} onNavigate={go}/>;
   else if (route.kind === 'messages') page = <MessagesPage category={route.category} threads={allThreads} messages={allMessages} people={people} activities={activities} topics={topics} currentUserId={currentUser.profile.id} notifications={demoNotifications} onCategoryChange={(category) => go('/messages?category=' + category)} onOpenThread={(roomType, threadId) => go('/messages/' + roomType + '/' + threadId)} onOpenNotification={() => setMessage('通知详情已读取')}/>;
-  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={dbProfile?.user ?? currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')} onSwitchAccount={dbProfile ? () => { void signOutSession(); go('/login'); } : undefined}/>;
+  else if (route.kind === 'me') page = <ProfilePage section={route.section} user={dbProfile?.user ?? currentUser} assets={{saved:savedActivities.size,active:activityApplications.filter((item)=>item.semantics.canAccessRoom).length,applications:activityApplications.length + joinedActivities.size,drafts:Number(hasStoredActivityDraft())}} onSectionChange={(section) => go('/me/' + section)} onEditProfile={() => setMessage('资料编辑功能即将开放')} onEditRelationship={() => setMessage('关系意向编辑功能即将开放')} onOpenAsset={(asset) => setMessage('已打开' + asset)} onOpenPermission={() => setMessage('可在这里查看当前资料权限')} onSwitchAccount={dbProfile ? () => { void signOutSession(); go('/login'); } : undefined} userId={auth.status === 'signedIn' ? auth.user.id : undefined} isAdmin={dbProfile?.isAdmin} onOpenAdmin={dbProfile?.isAdmin ? () => navigate('/admin', { state: { from: location.pathname + location.search } }) : undefined}/>;
   else if (route.kind === 'chat') {
     const thread = allThreads.find((item) => item.id === route.roomId);
     const topic = thread?.kind === ThreadKind.TOPIC_DISCUSSION ? (findGeneratedTopicById(thread.topicId) ?? findTopicById(thread.topicId)) : undefined;

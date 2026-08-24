@@ -64,7 +64,7 @@ export function profileRowToPerson(row: ProfileRow, birth?: string | null): Pers
     mbti: (row.mbti as MbtiType) || MbtiType.UNSURE,
     zodiac: (row.zodiac as ZodiacSign) || (birth ? (zodiacFromBirthDate(birth) ?? ZodiacSign.ARIES) : ZodiacSign.ARIES),
     interests: (Array.isArray(row.interests) ? (row.interests as string[]) : []) as unknown as Person['interests'],
-    photos: [PLACEHOLDER_PHOTO],
+    photos: (Array.isArray(row.photos) && (row.photos as unknown as MediaAsset[]).length > 0 ? row.photos as unknown as MediaAsset[] : [PLACEHOLDER_PHOTO]) as unknown as Person['photos'],
     prompts: Array.isArray(row.prompts) ? (row.prompts as unknown as PromptAnswer[]) : [],
     verification: {
       account: (row.verification as PersonVerification | null)?.account ?? VerificationStatus.UNVERIFIED,
@@ -77,6 +77,7 @@ export function profileRowToPerson(row: ProfileRow, birth?: string | null): Pers
 export interface LoadedUserProfile {
   person: Person;
   preferences: PreferencesRow | null;
+  isAdmin: boolean;
 }
 
 export async function loadUserProfile(userId: string): Promise<LoadedUserProfile | null> {
@@ -91,7 +92,7 @@ export async function loadUserProfile(userId: string): Promise<LoadedUserProfile
     .select('*')
     .eq('id', userId)
     .maybeSingle();
-  return { person: profileRowToPerson(profile, preferences?.birth_date ?? null), preferences };
+  return { person: profileRowToPerson(profile, preferences?.birth_date ?? null), preferences, isAdmin: Boolean(profile.is_admin) };
 }
 
 export function buildCurrentUser(loaded: LoadedUserProfile): CurrentUser {

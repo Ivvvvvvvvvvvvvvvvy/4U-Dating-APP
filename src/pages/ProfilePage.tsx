@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   Bookmark,
   CheckCircle2,
@@ -7,6 +8,7 @@ import {
   EyeOff,
   FilePenLine,
   HeartHandshake,
+  ImagePlus,
   KeyRound,
   LockKeyhole,
   MapPin,
@@ -15,9 +17,11 @@ import {
   Sparkles,
   UserRound,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { RelationshipGoal, VerificationStatus, type CurrentUser } from '../domain';
 import { SafeImage } from '../components/SafeImage';
+import { loadMyPhotos, photoPublicUrl, removePendingPhoto, uploadProfilePhoto, type PhotoRow } from '../auth/photos';
 
 export type ProfileSection = 'profile' | 'relationship' | 'assets' | 'permissions';
 export type ProfileAssetKey = 'saved' | 'active' | 'applications' | 'drafts';
@@ -40,6 +44,9 @@ export interface ProfilePageProps {
   readonly onOpenAsset?: (asset: ProfileAssetKey) => void;
   readonly onOpenPermission?: (tier: ProfilePermissionTier) => void;
   readonly onSwitchAccount?: () => void;
+  readonly userId?: string;
+  readonly isAdmin?: boolean;
+  readonly onOpenAdmin?: () => void;
 }
 
 const sectionItems: readonly {
@@ -70,6 +77,9 @@ export function ProfilePage({
   onOpenAsset,
   onOpenPermission,
   onSwitchAccount,
+  userId,
+  isAdmin,
+  onOpenAdmin,
 }: ProfilePageProps) {
   const activeSection = isProfileSection(section) ? section : 'profile';
   const counts: ProfileAssetCounts = {
@@ -110,17 +120,20 @@ export function ProfilePage({
       </nav>
 
       <main className="profile-section-content">
-        {activeSection === 'profile' && <ProfileOverview user={user} onEdit={onEditProfile} />}
+        {activeSection === 'profile' && <ProfileOverview user={user} onEdit={onEditProfile} userId={userId} />}
         {activeSection === 'relationship' && <RelationshipOverview user={user} onEdit={onEditRelationship} />}
         {activeSection === 'assets' && <AssetOverview counts={counts} onOpen={onOpenAsset} />}
         {activeSection === 'permissions' && <PermissionOverview user={user} onOpen={onOpenPermission} />}
       </main>
-      {onSwitchAccount && <button type="button" className="logout-button" onClick={onSwitchAccount}><Repeat size={17}/>切换账号</button>}
+      <div className="profile-account-actions">
+        {isAdmin && onOpenAdmin && <button type="button" className="admin-button" onClick={onOpenAdmin}><ShieldCheck size={17} />审核后台</button>}
+        {onSwitchAccount && <button type="button" className="logout-button" onClick={onSwitchAccount}><Repeat size={17}/>切换账号</button>}
+      </div>
     </section>
   );
 }
 
-function ProfileOverview({ user, onEdit }: { user: CurrentUser; onEdit?: () => void }) {
+function ProfileOverview({ user, onEdit, userId }: { user: CurrentUser; onEdit?: () => void; userId?: string }) {
   const profile = user.profile;
   return (
     <>
@@ -134,6 +147,7 @@ function ProfileOverview({ user, onEdit }: { user: CurrentUser; onEdit?: () => v
           <div><dt>MBTI</dt><dd>{profile.mbti}</dd></div>
         </dl>
       </section>
+      <PhotoManager userId={userId} approved={profile.photos} />
       <section className="profile-section">
         <div className="section-heading"><h2>兴趣坐标</h2><span>{profile.interests.length} 项</span></div>
         <div className="interest-cloud">{profile.interests.map((interest) => <span key={interest}>{interest}</span>)}</div>
@@ -233,6 +247,83 @@ function verificationLabel(status: VerificationStatus) {
   if (status === VerificationStatus.PENDING) return '真人认证审核中';
   if (status === VerificationStatus.FAILED) return '真人认证未通过';
   return '真人尚未认证';
+}
+
+function PhotoManager({ userId, approved }: { userId?: string; approved: CurrentUser['profile']['photos'] }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState<PhotoRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void loadMyPhotos(userId)
+      .then((rows) => { if (!cancelled) setPending(rows.filter((row) => row.status === 'PENDING')); })
+      .catch(() => { if (!cancelled) setError('照片加载失败'); });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const onFiles = async (files: FileList | null) => {
+    if (!userId || !files?.length) return;
+    setBusy(true);
+    setError('');
+    try {
+      const created: PhotoRow[] = [];
+      for (const file of Array.from(files)) created.push(await uploadProfilePhoto(userId, file));
+      setPending((current) => [...current, ...created]);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : '上传失败，请重试');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const onRemove = async (photo: PhotoRow) => {
+    setBusy(true);
+    setError('');
+    try {
+      await removePendingPhoto(photo);
+      setPending((current) => current.filter((row) => row.id !== photo.id));
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : '删除失败，请重试');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const total = approved.length + pending.length;
+
+  return (
+    <section className="profile-section photo-manager">
+      <div className="section-heading"><h2>照片管理</h2><span>{total}/6</span></div>
+      <p className="profile-bio">从手机或电脑上传照片，通过审核后才会公开展示。</p>
+      <div className="photo-grid">
+        {approved.map((asset, index) => (
+          <div className="photo-cell is-filled" key={asset.id}>
+            <img src={asset.url} alt={asset.alt} />
+            <em className="photo-cover">{index === 0 ? '封面' : `照片 ${index + 1}`}</em>
+          </div>
+        ))}
+        {pending.map((photo) => (
+          <div className="photo-cell is-filled" key={photo.id}>
+            <img src={photoPublicUrl(photo.bucket, photo.storage_path)} alt="待审核照片" />
+            <span className="photo-badge">待审核</span>
+            <button type="button" className="photo-remove" aria-label="删除待审核照片" onClick={() => void onRemove(photo)}><X size={14}/></button>
+          </div>
+        ))}
+        {total < 6 && (
+          <button type="button" className="photo-add" disabled={busy || !userId} onClick={() => inputRef.current?.click()}>
+            {busy ? <><span>上传中…</span></> : <><ImagePlus/><span>添加照片</span></>}
+          </button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={(event) => void onFiles(event.target.files)} />
+      {error && <p className="photo-manager-error" role="alert">{error}</p>}
+      {!userId && <p className="photo-manager-error">登录后可上传照片</p>}
+    </section>
+  );
 }
 
 function isProfileSection(value: string): value is ProfileSection {

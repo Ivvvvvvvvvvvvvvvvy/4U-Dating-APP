@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, Eye, Heart, ImagePlus, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound, WandSparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Check, ChevronRight, Clock3, Eye, Heart, ImagePlus, Loader2, LockKeyhole, Mail, MapPin, ShieldCheck, Sparkles, UserPlus, UserRound, UsersRound, WandSparkles, X } from 'lucide-react';
 import type { OnboardingStep } from '../router';
 import { RelationshipGoal } from '../domain';
 import { supabase } from '../integrations/supabase/client';
 import { signUpWithEmail } from '../auth/useAuth';
 import { saveOnboardingProfile, zodiacFromBirthDate } from '../auth/profile';
+import { loadMyPhotos, MAX_PHOTOS, photoPublicUrl, removePendingPhoto, uploadProfilePhoto, type PhotoRow } from '../auth/photos';
 
 type SaveState = 'saved' | 'saving' | 'offline';
 type Intent = 'LONG_TERM_PARTNER' | 'LONG_TERM_OPEN_TO_SHORT' | 'SHORT_TERM_OPEN_TO_LONG' | 'SHORT_TERM_FUN' | 'NEW_FRIENDS' | 'FIGURING_OUT';
@@ -276,7 +277,98 @@ function Interests({ draft, update, setError }: { draft: OnboardingDraft; update
     <section className="lifestyle-section"><h2>生活方式小问题 <span>{Object.keys(draft.lifestyle).length}/3</span></h2>{[['weekend','理想周末更接近？',['提前计划','随心而动','一半一半','不确定']],['social','舒服的社交密度？',['热闹多人','少数熟人','独处充电','看状态']],['reply','期待的沟通节奏？',['及时分享','集中回复','轻松随缘','不确定']]].map(([id,q,answers])=><div className="lifestyle-question" key={id as string}><strong>{q as string}</strong><div className="choice-chips">{(answers as string[]).map(a=><button key={a} className={draft.lifestyle[id as string]===a?'is-active':''} onClick={()=>setLife(id as string,a)}>{a}</button>)}</div></div>)}</section>
   </>;
 }
-function Photos({ draft, update }: { draft: OnboardingDraft; update: Update }) { return <><StepIntro eyebrow="7 / 11 · 照片与真人验证" title="让个人卡更真实" text="上传 2～6 张照片，至少包含一张清晰单人照，并指定封面。" privacy="未通过审核的照片不会公开；上传时会清理 EXIF 与定位信息"/><div className="photo-grid">{Array.from({length:6},(_,i)=><button key={i} className={i<draft.photoCount?'is-filled':''} onClick={()=>update('photoCount',i<draft.photoCount?i:Math.min(6,draft.photoCount+1))}>{i<draft.photoCount?<><span>{i===0?'封面':`照片 ${i+1}`}</span><Check/></>:<><ImagePlus/><span>添加照片</span></>}</button>)}</div><button className={`personhood-card ${draft.personhood?'is-active':''}`} disabled={draft.photoCount<2} onClick={()=>update('personhood',!draft.personhood)}><ShieldCheck/><span><strong>{draft.personhood?'真人验证已提交':'立即真人验证'}</strong><small>进入个人推荐池前需要完成，可稍后在状态页继续</small></span><ChevronRight/></button></>; }
+function Photos({ draft, update }: { draft: OnboardingDraft; update: Update }) {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [rows, setRows] = useState<PhotoRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+      setUserId(user.id);
+      try {
+        const existing = await loadMyPhotos(user.id);
+        if (!cancelled) {
+          const visible = existing.filter((row) => row.status !== 'REJECTED');
+          setRows(visible);
+          update('photoCount', visible.length);
+        }
+      } catch {
+        setLocalError('照片加载失败，请重试');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const shown = rows.filter((row) => row.status !== 'REJECTED');
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length || !userId) return;
+    setLocalError('');
+    setBusy(true);
+    try {
+      const slots = MAX_PHOTOS - shown.length;
+      const picked = Array.from(files).slice(0, Math.max(slots, 0));
+      if (!picked.length) { setLocalError(`最多上传 ${MAX_PHOTOS} 张照片`); return; }
+      const created: PhotoRow[] = [];
+      for (const file of picked) created.push(await uploadProfilePhoto(userId, file));
+      setRows((current) => [...current, ...created]);
+      update('photoCount', Math.min(shown.length + created.length, MAX_PHOTOS));
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : '上传失败，请重试');
+    } finally {
+      setBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = async (photo: PhotoRow) => {
+    setBusy(true);
+    setLocalError('');
+    try {
+      await removePendingPhoto(photo);
+      const next = rows.filter((row) => row.id !== photo.id);
+      setRows(next);
+      update('photoCount', Math.max(0, shown.length - 1));
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : '删除失败，请重试');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <><StepIntro eyebrow="7 / 11 · 照片与真人验证" title="让个人卡更真实" text="从手机或电脑上传 2～6 张照片，至少包含一张清晰单人照，并指定封面。" privacy="未通过审核的照片不会公开；上传时会清理 EXIF 与定位信息"/>
+    <div className="photo-grid">
+      {Array.from({ length: MAX_PHOTOS }, (_, i) => {
+        const photo = shown[i];
+        if (photo) {
+          return (
+            <div className="photo-cell is-filled" key={photo.id}>
+              <img src={photoPublicUrl(photo.bucket, photo.storage_path)} alt={`照片 ${i + 1}`} />
+              {i === 0 && <em className="photo-cover">封面</em>}
+              <span className="photo-badge">{photo.status === 'APPROVED' ? '已通过' : '待审核'}</span>
+              {photo.status === 'PENDING' && <button type="button" className="photo-remove" aria-label="删除照片" onClick={() => void removePhoto(photo)}><X size={14}/></button>}
+            </div>
+          );
+        }
+        return (
+          <button key={i} type="button" className="photo-add" disabled={busy || !userId || shown.length >= MAX_PHOTOS} onClick={() => fileInputRef.current?.click()}>
+            {busy && i === shown.length ? <><Loader2 className="is-spinning"/><span>上传中…</span></> : <><ImagePlus/><span>添加照片</span></>}
+          </button>
+        );
+      })}
+    </div>
+    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={(event) => void handleFiles(event.target.files)}/>
+    {localError && <p className="onboarding-error" role="alert">{localError}</p>}
+    {!userId && <p className="photo-manager-error">登录状态失效，请返回账号步骤重新验证后上传。</p>}
+    <button className={`personhood-card ${draft.personhood?'is-active':''}`} disabled={draft.photoCount<2} onClick={()=>update('personhood',!draft.personhood)}><ShieldCheck/><span><strong>{draft.personhood?'真人验证已提交':'立即真人验证'}</strong><small>进入个人推荐池前需要完成，可稍后在状态页继续</small></span><ChevronRight/></button>
+  </>;
+}
 function Expression({ draft, update }: { draft: OnboardingDraft; update: Update }) { const polish=()=>draft.prompt.trim()&&update('prompt',draft.prompt.trim().replace(/[。！]?$/,'。')+' 我也很想听听你的答案。'); return <><StepIntro eyebrow="8 / 11 · 个人表达" title="用一句话开启了解" text="选择一个 Prompt 并写下真实答案。AI 只会在你主动点击后润色现有文字。" privacy="AI 草稿采纳前不会公开，也不会参与匹配"/><div className="prompt-card"><span>周末最想和另一个人一起做什么？</span><textarea rows={5} maxLength={200} value={draft.prompt} placeholder="写下 20～200 字的真实回答…" onChange={(e)=>update('prompt',e.target.value)}/><small>{draft.prompt.length}/200</small><button onClick={polish}><WandSparkles/>帮我润色</button></div><label className="field"><span>自我介绍 <em>选填</em></span><textarea rows={4} maxLength={300} value={draft.bio} placeholder="还有什么想让别人了解？" onChange={(e)=>update('bio',e.target.value)}/></label></>; }
 function AiReview({ draft, update }: { draft: OnboardingDraft; update: Update }) { return <><StepIntro eyebrow="9 / 11 · AI 理解与授权" title="AI 对你的理解" text="你可以开启、关闭或修改每项用途。不启用 AI 也可以完成建档。" privacy="只有你确认的版本才能用于后续匹配或解释"/><div className="ai-summary"><Sparkles/><div><strong>目前了解到</strong><p>交往意向：{intentOptions.find(x=>x.id===draft.intent)?.label??'尚未选择'}</p><p>兴趣：{draft.interests.length?draft.interests.join('、'):'兴趣信息尚未提供'}</p><p>生活与沟通：已回答 {Object.keys(draft.lifestyle).length} 项</p></div></div><div className="permission-list"><ToggleRow title="AI 契合与个性化推荐" text="使用你授权的结构化信息优化推荐" value={draft.aiCompatibility} onChange={(v)=>update('aiCompatibility',v)}/><ToggleRow title="对他人展示 AI 推荐理由" text="只使用逐字段允许进入解释的内容" value={draft.publicExplanation} onChange={(v)=>update('publicExplanation',v)}/><ToggleRow title="通用模型训练" text="默认关闭，不影响基础功能" value={draft.modelTraining} onChange={(v)=>update('modelTraining',v)}/></div><label className="consent-row"><input type="checkbox" checked={draft.aiConfirmed} onChange={(e)=>update('aiConfirmed',e.target.checked)}/><span>{draft.aiCompatibility?'我确认以上 AI 理解与授权选择':'继续不启用 AI 契合功能'}</span></label></>; }
 function ToggleRow({title,text,value,onChange}:{title:string;text:string;value:boolean;onChange:(v:boolean)=>void}) { return <button className="toggle-row" role="switch" aria-checked={value} onClick={()=>onChange(!value)}><span><strong>{title}</strong><small>{text}</small></span><i className={value?'is-on':''}><b/></i></button>; }
