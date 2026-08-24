@@ -81,7 +81,7 @@ const loadSafeDraft = (): Partial<OnboardingDraft> => {
 };
 
 export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingStep; online: boolean; onNavigate: (path: string) => void }) {
-  const [draft, setDraft] = useState<OnboardingDraft>(() => ({ ...initialDraft, ...loadSafeDraft(), account: '', code: '', birthday: '', prompt: '', bio: '' }));
+  const [draft, setDraft] = useState<OnboardingDraft>(() => ({ ...initialDraft, ...loadSafeDraft(), account: '', code: '', birthday: '', prompt: '', bio: '', verified: false }));
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -94,7 +94,7 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
     setSaveState(online ? 'saving' : 'offline');
     const timer = window.setTimeout(() => {
       if (!online) return;
-      const { account: _account, code: _code, birthday: _birthday, prompt: _prompt, bio: _bio, ...safe } = draft;
+      const { account: _account, code: _code, birthday: _birthday, prompt: _prompt, bio: _bio, verified: _verified, ...safe } = draft;
       localStorage.setItem('4u:onboarding-safe-draft', JSON.stringify(safe));
       setSaveState('saved');
     }, 800);
@@ -208,6 +208,18 @@ function Account({ draft, update, setError }: { draft: OnboardingDraft; update: 
   const [busy, setBusy] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
 
+  // A "verified" flag restored from a saved draft is only meaningful while a
+  // real session exists. Without this, users could skip account creation and
+  // only fail at submission with "登录状态已失效".
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled && !data.user && draft.verified) update('verified', false);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const continueAccount = async () => {
     setError('');
     if (draft.accountMode === 'email') {
@@ -218,6 +230,8 @@ function Account({ draft, update, setError }: { draft: OnboardingDraft; update: 
       const { error: authError } = await signUpWithEmail(draft.account.trim(), password);
       setBusy(false);
       if (authError) { setError(authError); return; }
+      const { data: { user: created } } = await supabase.auth.getUser();
+      if (!created) { setError('账号已创建，请先完成邮箱验证后继续'); return; }
       update('verified', true);
       return;
     }
