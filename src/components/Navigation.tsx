@@ -1,4 +1,4 @@
-import { Bell, Compass, Home, MessageCircle, Plus, Search, UserRound } from 'lucide-react';
+import { Bell, Compass, Home, MessageCircle, Plus, Repeat, Search, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Person } from '../domain';
 import { SafeImage } from './SafeImage';
@@ -16,7 +16,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return <div className={'brand' + (compact ? ' brand--compact' : '')} aria-label="for U"><strong>for</strong><span>U</span><i /></div>;
 }
 
-export function SideNav({ active, inactive = false, viewer, onNavigate, onCreate }: { active: NavTab; inactive?: boolean; viewer: Pick<Person, 'displayName' | 'photos'>; onNavigate: (path: string) => void; onCreate: () => void }) {
+export function SideNav({ active, inactive = false, viewer, onNavigate, onCreate, onSwitchAccount }: { active: NavTab; inactive?: boolean; viewer: Pick<Person, 'displayName' | 'photos'>; onNavigate: (path: string) => void; onCreate: () => void; onSwitchAccount: () => void }) {
   return (
     <aside className="side-nav" aria-label="主导航" inert={inactive ? true : undefined} aria-hidden={inactive ? true : undefined}>
       <Brand />
@@ -29,6 +29,7 @@ export function SideNav({ active, inactive = false, viewer, onNavigate, onCreate
       </nav>
       <button className="side-create" type="button" onClick={onCreate}><Plus size={20} /><span>发起活动</span></button>
       <div className="side-profile"><SafeImage src={viewer.photos[0].url} alt={viewer.photos[0].alt} ratio="1" fallbackLabel="头像"/><div><b>{viewer.displayName}</b><small>体验账号</small></div></div>
+      <button type="button" className="side-switch" onClick={onSwitchAccount} aria-label="切换账号" title="切换账号"><Repeat size={16} /><span>切换账号</span></button>
     </aside>
   );
 }
