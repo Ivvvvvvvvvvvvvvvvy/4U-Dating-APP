@@ -45,6 +45,7 @@ interface OnboardingDraft {
 }
 
 const steps: OnboardingStep[] = ['welcome', 'account', 'adult-check', 'identity', 'preferences', 'mbti', 'interests', 'photos', 'expression', 'ai-review', 'privacy-preview'];
+
 const initialDraft: OnboardingDraft = {
   acceptedTerms: false, acceptedRules: false, accountMode: 'email', account: '', code: '', verified: false,
   region: '中国大陆', birthday: '', nickname: '', city: '上海', gender: '', occupation: '', orientations: [], showOrientation: false,
