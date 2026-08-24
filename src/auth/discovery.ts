@@ -37,7 +37,8 @@ export async function loadRecommendablePeople(excludeId?: string): Promise<Disco
     .from('profiles')
     .select('*')
     .eq('is_seeded', false)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .limit(80);
 
   const eligible = (rows ?? []).filter((row) => {
     if (excludeId && row.id === excludeId) return false;
