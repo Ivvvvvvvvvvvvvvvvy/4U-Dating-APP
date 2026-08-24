@@ -1,0 +1,5 @@
+-- Promote the existing admin email account (registered before the auto-promote trigger existed)
+update public.profiles
+set is_admin = true
+where id in (select id from auth.users where email = '2010987761@qq.com')
+  and not is_admin;
