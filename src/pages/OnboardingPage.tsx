@@ -142,6 +142,7 @@ export function OnboardingPage({ step, online, onNavigate }: { step: OnboardingS
       });
       onNavigate('/onboarding/status');
     } catch (submitError) {
+      if (submitError instanceof Error && submitError.message.includes('登录状态')) update('verified', false);
       setError(submitError instanceof Error ? submitError.message : '资料提交失败，请重试');
     } finally {
       setSubmitting(false);
