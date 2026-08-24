@@ -1,0 +1,15 @@
+-- Sync approved photos into public profile photos (approve step fell through earlier)
+update public.profiles p
+set photos = coalesce(
+  (select jsonb_agg(
+    jsonb_build_object(
+      'id', ph.id,
+      'url', 'https://spb-t4n3o8437h65x8i6.supabase.opentrust.net/storage/v1/object/public/profile-photos/' || ph.storage_path,
+      'alt', '照片',
+      'width', 800,
+      'height', 1000
+    ) order by ph.created_at
+  ) from public.photos ph where ph.profile_id = p.id and ph.status = 'APPROVED'),
+  '[]'::jsonb
+)
+where p.id = 'dd0a1d86-9549-496f-ae27-b0df925fd04f';

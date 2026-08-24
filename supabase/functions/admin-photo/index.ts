@@ -9,6 +9,27 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+type AdminClient = ReturnType<typeof createClient>;
+
+/** Recompute the public profile photos from the approved rows (single source of truth). */
+async function syncProfilePhotos(admin: AdminClient, profileId: string): Promise<string | null> {
+  const { data: approved, error: readError } = await admin
+    .from('photos')
+    .select('id, storage_path, bucket, created_at')
+    .eq('profile_id', profileId)
+    .eq('status', 'APPROVED')
+    .order('created_at', { ascending: true });
+  if (readError) return readError.message;
+
+  const photos = (approved ?? []).map((row) => {
+    const { data } = admin.storage.from(row.bucket).getPublicUrl(row.storage_path);
+    return { id: row.id, url: data.publicUrl, alt: '照片', width: 800, height: 1000 };
+  });
+
+  const { error: updateError } = await admin.from('profiles').update({ photos }).eq('id', profileId);
+  return updateError?.message ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -61,45 +82,21 @@ Deno.serve(async (req) => {
       if (photo.status !== 'PENDING') throw httpError(409, '该照片已审核');
 
       const now = new Date().toISOString();
-
-      if (action === 'reject') {
-        const { error: updateError } = await admin
-          .from('photos')
-          .update({ status: 'REJECTED', reviewed_at: now, reviewed_by: user.id })
-          .eq('id', photoId);
-        if (updateError) throw httpError(500, updateError.message);
-        await admin.storage.from(photo.bucket).remove([photo.storage_path]);
-        return json({ ok: true });
-      }
-
-      // Approve: mark approved and append to the public profile photos (dedupe)
-      const { data: publicUrlData } = admin.storage.from(photo.bucket).getPublicUrl(photo.storage_path);
-      const publicUrl = publicUrlData.publicUrl;
-
-      const { data: ownerProfile } = await admin
-        .from('profiles')
-        .select('photos')
-        .eq('id', photo.profile_id)
-        .maybeSingle();
-
-      const current = Array.isArray(ownerProfile?.photos) ? ownerProfile.photos as Array<Record<string, unknown>> : [];
-      const next = current.some((item) => item.id === photo.id)
-        ? current
-        : [...current, { id: photo.id, url: publicUrl, alt: '照片', width: 800, height: 1000 }];
-
+      const nextStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
       const { error: updateError } = await admin
         .from('photos')
-        .update({ status: 'APPROVED', reviewed_at: now, reviewed_by: user.id })
+        .update({ status: nextStatus, reviewed_at: now, reviewed_by: user.id })
         .eq('id', photoId);
       if (updateError) throw httpError(500, updateError.message);
 
-      const { error: profileError } = await admin
-        .from('profiles')
-        .update({ photos: next })
-        .eq('id', photo.profile_id);
-      if (profileError) throw httpError(500, profileError.message);
+      if (action === 'reject') {
+        await admin.storage.from(photo.bucket).remove([photo.storage_path]);
+      }
 
-      return json({ ok: true, url: publicUrl });
+      const syncError = await syncProfilePhotos(admin, photo.profile_id);
+      if (syncError) throw httpError(500, syncError);
+
+      return json({ ok: true });
     }
 
     throw httpError(400, '未知操作');

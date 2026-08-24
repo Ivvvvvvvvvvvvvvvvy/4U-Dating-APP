@@ -66,11 +66,14 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
     const result = await invokeAdmin({ action, photoId });
     setBusyId(null);
     if (!result.ok) {
-      setNotice(result.message ?? '操作失败，请重试');
       if (result.denied) {
         setDeniedMessage(result.message ?? '无权限');
         setPhase('denied');
+        return;
       }
+      // 409 等业务冲突（照片已被处理）：刷新列表保持一致
+      setNotice(result.message ?? '操作失败，请重试');
+      void load();
       return;
     }
     setPhotos((current) => current.filter((photo) => photo.id !== photoId));
